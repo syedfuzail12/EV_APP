@@ -1,0 +1,222 @@
+.success {
+  min-height: 100vh;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.animation {
+  margin-bottom: 24px;
+}
+
+.checkmark {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  font-size: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: scaleIn 0.5s ease;
+  box-shadow: 0 10px 40px rgba(16, 185, 129, 0.4);
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.card {
+  background: var(--white);
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.codeSection {
+  margin-bottom: 24px;
+}
+
+.label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-gray);
+  margin-bottom: 8px;
+}
+
+.codeBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--primary-light);
+  border: 2px dashed var(--primary);
+  border-radius: 12px;
+}
+
+.code {
+  flex: 1;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary);
+  font-family: 'Courier New', monospace;
+  letter-spacing: 2px;
+}
+
+.copyBtn {
+  padding: 8px 12px;
+  background: var(--primary);
+  border: none;
+  border-radius: 8px;
+  font-size: 18px;
+  color: white;
+  transition: all 0.2s;
+}
+
+.copyBtn:hover {
+  transform: scale(1.1);
+}
+
+.pointsSection {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.pointsBadge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 40px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
+}
+
+.pointsValue {
+  font-size: 48px;
+  font-weight: 700;
+  color: white;
+  line-height: 1;
+}
+
+.pointsLabel {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 4px;
+}
+
+.message {
+  text-align: center;
+  color: var(--text-gray);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.shareBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 16px;
+  background: #25D366;
+  border: none;
+  border-radius: 16px;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+  box-shadow: 0 10px 30px rgba(37, 211, 102, 0.3);
+}
+
+.shareBtn:hover {
+  background: #20BA5A;
+  transform: translateY(-2px);
+}
+
+.whatsappIcon {
+  font-size: 20px;
+}
+
+.rewards {
+  background: var(--white);
+  border-radius: 24px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  margin-bottom: 24px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+}
+
+.rewardsTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.milestones {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.milestone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-light);
+  border-radius: 12px;
+}
+
+.milestoneIcon {
+  font-size: 32px;
+}
+
+.milestoneCount {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.milestoneReward {
+  font-size: 13px;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.homeBtn {
+  padding: 14px 32px;
+  background: var(--white);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-dark);
+  transition: all 0.2s;
+}
+
+.homeBtn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}

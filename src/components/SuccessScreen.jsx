@@ -1,0 +1,90 @@
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useState } from 'react'
+import styles from './SuccessScreen.module.css'
+
+function SuccessScreen() {
+  const { t } = useTranslation()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { referralCode, points } = location.state || { referralCode: 'RW-0000', points: 10 }
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(referralCode)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const shareText = `Join Rider Connect and earn rewards! Use my code: ${referralCode}`
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`
+
+  return (
+    <div className={styles.success}>
+      <div className={styles.animation}>
+        <div className={styles.checkmark}>✓</div>
+      </div>
+
+      <h1 className={styles.title}>{t('success')}</h1>
+      
+      <div className={styles.card}>
+        <div className={styles.codeSection}>
+          <label className={styles.label}>{t('yourReferralCode')}</label>
+          <div className={styles.codeBox}>
+            <span className={styles.code}>{referralCode}</span>
+            <button className={styles.copyBtn} onClick={handleCopy}>
+              {copied ? '✓' : '📋'}
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.pointsSection}>
+          <div className={styles.pointsBadge}>
+            <span className={styles.pointsValue}>{points}</span>
+            <span className={styles.pointsLabel}>{t('currentPoints')}</span>
+          </div>
+        </div>
+
+        <p className={styles.message}>{t('shareWithFriends')}</p>
+
+        <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className={styles.shareBtn}>
+          <span className={styles.whatsappIcon}>💬</span>
+          Share on WhatsApp
+        </a>
+      </div>
+
+      <div className={styles.rewards}>
+        <h3 className={styles.rewardsTitle}>Earn More Points</h3>
+        <div className={styles.milestones}>
+          <div className={styles.milestone}>
+            <span className={styles.milestoneIcon}>🎯</span>
+            <div>
+              <div className={styles.milestoneCount}>10 Referrals</div>
+              <div className={styles.milestoneReward}>+100 Bonus Points</div>
+            </div>
+          </div>
+          <div className={styles.milestone}>
+            <span className={styles.milestoneIcon}>🏆</span>
+            <div>
+              <div className={styles.milestoneCount}>25 Referrals</div>
+              <div className={styles.milestoneReward}>+300 Bonus Points</div>
+            </div>
+          </div>
+          <div className={styles.milestone}>
+            <span className={styles.milestoneIcon}>🎁</span>
+            <div>
+              <div className={styles.milestoneCount}>50 Referrals</div>
+              <div className={styles.milestoneReward}>Lucky Draw Entry</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button className={styles.homeBtn} onClick={() => navigate('/')}>
+        Back to Home
+      </button>
+    </div>
+  )
+}
+
+export default SuccessScreen
