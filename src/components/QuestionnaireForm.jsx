@@ -11,6 +11,7 @@ function QuestionnaireForm() {
   const navigate = useNavigate()
   const [currentSection, setCurrentSection] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [phoneAlreadyExists, setPhoneAlreadyExists] = useState(false)
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -169,6 +170,41 @@ function QuestionnaireForm() {
 
 // Section Components
 function SectionA({ formData, onChange, t }) {
+  const [phoneError, setPhoneError] = useState('')
+  const [checkingPhone, setCheckingPhone] = useState(false)
+
+  const checkPhoneExists = async (phone) => {
+    if (phone.length !== 10) {
+      setPhoneError('')
+      return
+    }
+
+    setCheckingPhone(true)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/riders/${phone}`)
+      if (response.ok) {
+        setPhoneError('This number is already registered! Please use a different number.')
+      } else {
+        setPhoneError('')
+      }
+    } catch (error) {
+      setPhoneError('')
+    } finally {
+      setCheckingPhone(false)
+    }
+  }
+
+  const handlePhoneChange = (value) => {
+    const cleaned = value.replace(/\D/g, '').slice(0, 10)
+    onChange('whatsapp', cleaned)
+    
+    if (cleaned.length === 10) {
+      checkPhoneExists(cleaned)
+    } else {
+      setPhoneError('')
+    }
+  }
+
   return (
     <div className={styles.section}>
       <input
@@ -178,14 +214,18 @@ function SectionA({ formData, onChange, t }) {
         onChange={(e) => onChange('fullName', e.target.value)}
         className={styles.input}
       />
-      <input
-        type="tel"
-        placeholder={t('whatsapp')}
-        value={formData.whatsapp}
-        onChange={(e) => onChange('whatsapp', e.target.value)}
-        className={styles.input}
-        maxLength={10}
-      />
+      <div style={{ position: 'relative' }}>
+        <input
+          type="tel"
+          placeholder={t('whatsapp')}
+          value={formData.whatsapp}
+          onChange={(e) => handlePhoneChange(e.target.value)}
+          className={`${styles.input} ${phoneError ? styles.inputError : ''}`}
+          maxLength={10}
+        />
+        {checkingPhone && <span className={styles.checking}>Checking...</span>}
+        {phoneError && <div className={styles.errorMessage}>{phoneError}</div>}
+      </div>
       <select 
         value={formData.city}
         onChange={(e) => onChange('city', e.target.value)}
