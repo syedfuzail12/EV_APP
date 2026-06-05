@@ -28,6 +28,13 @@ const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_T
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null
 
+console.log('🔧 Twilio setup:', {
+  hasSID: !!process.env.TWILIO_ACCOUNT_SID,
+  hasToken: !!process.env.TWILIO_AUTH_TOKEN,
+  hasNumber: !!process.env.TWILIO_WHATSAPP_NUMBER,
+  clientInitialized: !!twilioClient
+})
+
 // Generate unique referral code
 function generateReferralCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -71,19 +78,30 @@ function segmentRider(data) {
 
 // Send WhatsApp message
 async function sendWhatsAppMessage(phone, message) {
+  console.log('📤 Attempting to send WhatsApp message to:', phone)
+  console.log('📝 Message preview:', message.substring(0, 100))
+  
   if (!twilioClient) {
+    console.log('⚠️ Twilio client NOT initialized - running in mock mode')
     console.log('📱 WhatsApp (mock):', message.substring(0, 50) + '...')
     return
   }
   
   try {
-    await twilioClient.messages.create({
+    console.log('📞 Twilio client initialized, sending message...')
+    console.log('From:', process.env.TWILIO_WHATSAPP_NUMBER)
+    console.log('To:', `+91${phone}`)
+    
+    const result = await twilioClient.messages.create({
       body: message,
       from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
       to: `whatsapp:+91${phone}`
     })
+    
+    console.log('✅ Message sent successfully! SID:', result.sid)
   } catch (error) {
-    console.error('WhatsApp send failed:', error)
+    console.error('❌ WhatsApp send failed:', error.message)
+    console.error('Error details:', error)
   }
 }
 
