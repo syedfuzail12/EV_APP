@@ -156,6 +156,58 @@
   font-size: 20px;
 }
 
+.qrBtn {
+  width: 100%;
+  padding: 16px;
+  background: white;
+  border: 2px solid var(--primary);
+  border-radius: 16px;
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 12px;
+  transition: all 0.2s;
+}
+
+.qrBtn:hover:not(:disabled) {
+  background: var(--primary-light);
+}
+
+.qrBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.qrContainer {
+  margin-top: 24px;
+  padding: 20px;
+  background: var(--bg-light);
+  border-radius: 16px;
+  text-align: center;
+}
+
+.qrLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 12px;
+}
+
+.qrImage {
+  width: 200px;
+  height: 200px;
+  border: 3px solid var(--primary);
+  border-radius: 12px;
+  padding: 10px;
+  background: white;
+}
+
+.qrHint {
+  font-size: 12px;
+  color: var(--text-gray);
+  margin-top: 12px;
+}
+
 .rewards {
   background: var(--white);
   border-radius: 24px;

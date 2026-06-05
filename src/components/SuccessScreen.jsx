@@ -9,11 +9,26 @@ function SuccessScreen() {
   const navigate = useNavigate()
   const { referralCode, points } = location.state || { referralCode: 'RW-0000', points: 10 }
   const [copied, setCopied] = useState(false)
+  const [qrCode, setQrCode] = useState(null)
+  const [loadingQr, setLoadingQr] = useState(false)
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralCode)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const generateQR = async () => {
+    setLoadingQr(true)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/qr/${referralCode}`)
+      const data = await response.json()
+      setQrCode(data.qrCode)
+    } catch (error) {
+      console.error('Failed to generate QR:', error)
+    } finally {
+      setLoadingQr(false)
+    }
   }
 
   const shareText = `Join Rider Connect and earn rewards! Use my code: ${referralCode}`
@@ -51,6 +66,18 @@ function SuccessScreen() {
           <span className={styles.whatsappIcon}>💬</span>
           Share on WhatsApp
         </a>
+
+        <button className={styles.qrBtn} onClick={generateQR} disabled={loadingQr}>
+          {loadingQr ? 'Generating...' : '📱 Generate QR Code'}
+        </button>
+
+        {qrCode && (
+          <div className={styles.qrContainer}>
+            <p className={styles.qrLabel}>Scan to refer friends:</p>
+            <img src={qrCode} alt="QR Code" className={styles.qrImage} />
+            <p className={styles.qrHint}>Print and share at petrol pumps!</p>
+          </div>
+        )}
       </div>
 
       <div className={styles.rewards}>
