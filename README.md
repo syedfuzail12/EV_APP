@@ -20,6 +20,7 @@ A comprehensive multilingual platform for collecting delivery rider data with re
 - QR code generation for offline sharing
 - Leaderboard with top referrers
 - Milestone bonuses (10, 25, 50 referrals)
+- **WhatsApp Chatbot**: Complete questionnaire entirely via WhatsApp messages
 
 ## 🛠️ Tech Stack
 
@@ -134,6 +135,9 @@ Get dashboard statistics
 
 ### GET `/api/qr/:referralCode`
 Generate QR code for referral
+
+### POST `/api/whatsapp`
+WhatsApp webhook for chatbot conversations
 
 ## 🎨 UI/UX Highlights
 
