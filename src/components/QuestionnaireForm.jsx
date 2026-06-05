@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { submitRider } from '../services/api'
 import styles from './QuestionnaireForm.module.css'
@@ -9,6 +9,7 @@ const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F']
 function QuestionnaireForm() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
+  const location = useLocation()
   const [currentSection, setCurrentSection] = useState(0)
   const [loading, setLoading] = useState(false)
   const [phoneAlreadyExists, setPhoneAlreadyExists] = useState(false)
@@ -36,6 +37,17 @@ function QuestionnaireForm() {
     referredBy: false,
     referralCode: ''
   })
+
+  useEffect(() => {
+    // If there's a referral code from QR scan, pre-fill it
+    if (location.state?.referralCode) {
+      setFormData(prev => ({
+        ...prev,
+        referredBy: true,
+        referralCode: location.state.referralCode
+      }))
+    }
+  }, [location.state])
 
   useEffect(() => {
     // Auto-detect language based on city
@@ -495,8 +507,24 @@ function SectionE({ formData, onChange, onMultiSelect, t }) {
 }
 
 function SectionF({ formData, onChange, t }) {
+  const isPreFilled = formData.referredBy && formData.referralCode
+  
   return (
     <div className={styles.section}>
+      {isPreFilled && (
+        <div style={{ 
+          padding: '12px', 
+          backgroundColor: '#e8f5e9', 
+          borderRadius: '8px', 
+          marginBottom: '16px',
+          color: '#2e7d32',
+          fontSize: '14px',
+          border: '1px solid #4caf50'
+        }}>
+          ✅ {t('referralApplied') || 'Referral code applied'}: <strong>{formData.referralCode}</strong>
+        </div>
+      )}
+      
       <label className={styles.label}>{t('referredBy')}</label>
       <div className={styles.radioGroup}>
         {['yes', 'no'].map(option => (

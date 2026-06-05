@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import styles from './WelcomeScreen.module.css'
 
 function WelcomeScreen() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [selectedLanguage, setSelectedLanguage] = useState('en')
 
   const handleLanguageSelect = (lang) => {
@@ -14,7 +15,13 @@ function WelcomeScreen() {
   }
 
   const handleStart = () => {
-    navigate('/questionnaire')
+    // Pass referral code from URL to questionnaire if present
+    const refCode = searchParams.get('ref')
+    if (refCode) {
+      navigate('/questionnaire', { state: { referralCode: refCode } })
+    } else {
+      navigate('/questionnaire')
+    }
   }
 
   return (
