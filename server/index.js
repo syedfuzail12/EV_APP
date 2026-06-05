@@ -837,41 +837,54 @@ async function saveWhatsAppRider(sessionData) {
 // WhatsApp Webhook - Receive messages
 app.post('/api/whatsapp', async (req, res) => {
   try {
-    const from = req.body.From?.replace('whatsapp:+91', '').replace('whatsapp:', '') || ''
+    console.log('📩 Webhook received:', JSON.stringify(req.body))
+    
+    const fromRaw = req.body.From || ''
+    const from = fromRaw.replace('whatsapp:+91', '').replace('whatsapp:+', '').replace('whatsapp:', '')
     const body = req.body.Body?.trim() || ''
 
-    console.log('📱 WhatsApp message from:', from, '→', body)
+    console.log('📱 From:', from, '(raw:', fromRaw, ') | Body:', body)
 
     if (!from || !body) {
+      console.log('❌ Missing from or body')
       return res.status(400).send('Invalid request')
     }
 
     // Handle restart command
     if (body.toLowerCase() === 'restart' || body.toLowerCase() === 'start') {
+      console.log('🔄 Restart/Start command received')
       whatsappSessions.delete(from)
       const session = getWhatsAppSession(from)
       const welcomeMsg = "🌟 *Road Warrior Registration*\n\nSelect your language:\n\n1 - English\n2 - हिंदी (Hindi)"
+      console.log('📤 Sending welcome message')
       await sendWhatsAppMessage(from, welcomeMsg)
       return res.status(200).send('OK')
     }
 
     // Get or create session
     const session = getWhatsAppSession(from)
+    console.log('📊 Session:', { step: session.step, language: session.language })
 
-    // First time user
-    if (session.step === 'language' && !body) {
+    // First time user (session at language step)
+    if (session.step === 'language') {
       const welcomeMsg = "🌟 *Road Warrior Registration*\n\nSelect your language:\n\n1 - English\n2 - हिंदी (Hindi)"
+      console.log('👋 First time user, sending language selection')
       await sendWhatsAppMessage(from, welcomeMsg)
+      // Don't process the message further, wait for language selection
       return res.status(200).send('OK')
     }
 
     // Process response
+    console.log('⚙️ Processing response')
     const response = processWhatsAppResponse(session, body)
+    console.log('💬 Response:', response.substring(0, 100))
 
     // Check if complete
     if (response === 'complete') {
       try {
+        console.log('✅ Registration complete')
         const referralCode = await saveWhatsAppRider(session.data)
+        console.log('💾 Data saved, code:', referralCode)
         const lang = session.language
         
         // Send completion message
@@ -880,6 +893,7 @@ app.post('/api/whatsapp', async (req, res) => {
         
         // Generate and send QR code
         const qrUrl = `${process.env.APP_URL}/?ref=${referralCode}`
+        console.log('📱 Generating QR for:', qrUrl)
         const qrCodeData = await QRCode.toDataURL(qrUrl, {
           width: 300,
           margin: 2,
@@ -891,6 +905,7 @@ app.post('/api/whatsapp', async (req, res) => {
         
         // Send QR code as media
         if (twilioClient) {
+          console.log('📤 Sending QR via Twilio')
           await twilioClient.messages.create({
             body: WHATSAPP_QUESTIONS[lang].qrCode.replace('{qrImage}', ''),
             from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
@@ -898,23 +913,23 @@ app.post('/api/whatsapp', async (req, res) => {
             mediaUrl: [qrCodeData]
           })
         } else {
-          // Mock mode - just send text
-          console.log('📱 Would send QR code to:', from)
+          console.log('⚠️ Twilio client not initialized')
         }
         
         // Clear session
         whatsappSessions.delete(from)
       } catch (saveError) {
-        console.error('Error completing registration:', saveError)
+        console.error('❌ Save error:', saveError)
         await sendWhatsAppMessage(from, "❌ Sorry, something went wrong. Please try again or type 'restart'")
       }
     } else {
+      console.log('📤 Sending next question')
       await sendWhatsAppMessage(from, response)
     }
 
     res.status(200).send('OK')
   } catch (error) {
-    console.error('WhatsApp webhook error:', error)
+    console.error('❌ Webhook error:', error)
     res.status(500).send('Error')
   }
 })
