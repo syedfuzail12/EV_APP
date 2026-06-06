@@ -5,7 +5,6 @@ import { createClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
 import QRCode from 'qrcode'
 import axios from 'axios'
-import msg91 from 'msg91-sdk'
 
 dotenv.config()
 
@@ -112,7 +111,7 @@ async function sendWhatsAppMessage(phone, message) {
   }
 }
 
-// Send SMS via MSG91 (FREE - 25 SMS/day for India)
+// Send SMS via MSG91 (FREE - 25 SMS/day for India) - Using REST API
 async function sendSMS(phone, message) {
   console.log('📱 Attempting to send SMS via MSG91 to:', phone)
   console.log('📝 SMS preview:', message.substring(0, 100))
@@ -126,36 +125,44 @@ async function sendSMS(phone, message) {
   try {
     console.log('🔑 MSG91 API key found, sending SMS...')
     
-    // Initialize MSG91 client
-    const msg91Client = new msg91.default(process.env.MSG91_AUTH_KEY)
-    
     // Truncate message to 160 characters (SMS limit)
     const smsMessage = message.length > 160 ? message.substring(0, 157) + '...' : message
     
     console.log('📤 Sending SMS to:', phone)
     console.log('📝 Message:', smsMessage)
     
-    // Send SMS using MSG91 SDK
-    const response = await msg91Client.sendSMS({
-      flow_id: process.env.MSG91_FLOW_ID || undefined, // Optional: Use DLT template ID if available
-      sender: process.env.MSG91_SENDER_ID || 'RDWRRR', // 6 char sender ID
-      mobiles: '91' + phone, // MSG91 expects country code + number
-      message: smsMessage,
-      route: 4 // Route 4 is for Transactional SMS (most reliable)
+    // MSG91 API endpoint
+    const url = 'https://control.msg91.com/api/v5/flow/'
+    
+    // Send SMS using MSG91 REST API
+    const response = await axios.post(url, {
+      template_id: process.env.MSG91_TEMPLATE_ID || null, // Optional template
+      short_url: '0',
+      recipients: [{
+        mobiles: '91' + phone,
+        message: smsMessage
+      }]
+    }, {
+      headers: {
+        'authkey': process.env.MSG91_AUTH_KEY,
+        'content-type': 'application/json'
+      }
     })
     
-    console.log('📩 MSG91 response:', JSON.stringify(response, null, 2))
+    console.log('📩 MSG91 response:', JSON.stringify(response.data, null, 2))
     
-    if (response.type === 'success' || response.message === 'SMS sent successfully') {
+    if (response.data.type === 'success' || response.status === 200) {
       console.log('✅ SMS sent successfully via MSG91!')
-      return { success: true, provider: 'msg91', id: response.request_id }
+      return { success: true, provider: 'msg91', id: response.data.request_id }
     } else {
-      console.error('❌ MSG91 failed:', response.message || response)
-      return { success: false, reason: response.message || 'API error' }
+      console.error('❌ MSG91 failed:', response.data.message || response.data)
+      return { success: false, reason: response.data.message || 'API error' }
     }
   } catch (error) {
     console.error('❌ SMS send failed:', error.message)
-    console.error('Error details:', error.response?.data || error)
+    if (error.response) {
+      console.error('Error response:', error.response.status, error.response.data)
+    }
     return { success: false, reason: error.message }
   }
 }
