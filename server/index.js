@@ -124,33 +124,30 @@ async function sendSMS(phone, message) {
   try {
     console.log('🔑 Fast2SMS API key found, sending SMS...')
     
-    // Fast2SMS API - Free tier: 100+ SMS/day
-    const payload = {
-      route: 'q',
-      message: message,
+    // Truncate message to 160 characters (SMS limit)
+    const smsMessage = message.length > 160 ? message.substring(0, 157) + '...' : message
+    
+    // Fast2SMS requires specific format - using form-urlencoded
+    const params = new URLSearchParams({
+      authorization: process.env.FAST2SMS_API_KEY,
+      message: smsMessage,
       language: 'english',
-      flash: 0,
+      route: 'q',
       numbers: phone
-    }
-    
-    console.log('📤 Sending to Fast2SMS:', JSON.stringify(payload, null, 2))
-    
-    const response = await axios.post('https://www.fast2sms.com/dev/bulkV2', payload, {
-      headers: {
-        'authorization': process.env.FAST2SMS_API_KEY,
-        'Content-Type': 'application/json'
-      },
-      timeout: 10000 // 10 second timeout
     })
+    
+    console.log('📤 Sending SMS to:', phone)
+    
+    const response = await axios.get(`https://www.fast2sms.com/dev/bulkV2?${params.toString()}`)
     
     console.log('📩 Fast2SMS response:', JSON.stringify(response.data, null, 2))
     
-    if (response.data.return === true) {
+    if (response.data.return === true || response.data.status_code === 200) {
       console.log('✅ SMS sent successfully via Fast2SMS!')
       return { success: true, provider: 'fast2sms', id: response.data.request_id }
     } else {
-      console.error('❌ Fast2SMS failed:', response.data.message)
-      return { success: false, reason: response.data.message }
+      console.error('❌ Fast2SMS failed:', response.data.message || response.data)
+      return { success: false, reason: response.data.message || 'API error' }
     }
   } catch (error) {
     console.error('❌ SMS send failed:', error.message)
