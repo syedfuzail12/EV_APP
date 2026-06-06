@@ -24,17 +24,10 @@ const mockDatabase = []
 // WhatsApp conversation sessions (stores user progress)
 const whatsappSessions = new Map()
 
-// Twilio client (optional, for WhatsApp)
-const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
-  : null
+// Twilio client (optional, disabled by default)
+const twilioClient = null // Disabled - will add back with new account
 
-console.log('🔧 Twilio setup:', {
-  hasSID: !!process.env.TWILIO_ACCOUNT_SID,
-  hasToken: !!process.env.TWILIO_AUTH_TOKEN,
-  hasNumber: !!process.env.TWILIO_WHATSAPP_NUMBER,
-  clientInitialized: !!twilioClient
-})
+console.log('🔧 SMS/WhatsApp: Disabled - using on-screen notifications only')
 
 // Generate unique referral code
 function generateReferralCode() {
@@ -77,104 +70,17 @@ function segmentRider(data) {
   return segments.join(', ') || 'General'
 }
 
-// Send WhatsApp message
-async function sendWhatsAppMessage(phone, message) {
-  console.log('📤 Attempting to send WhatsApp message to:', phone)
-  console.log('📝 Message preview:', message.substring(0, 100))
+// Send notification (disabled - just show on screen)
+async function sendNotification(phone, message) {
+  console.log('📲 Notification disabled - showing on screen only')
+  console.log('📱 Would send to:', phone)
+  console.log('📝 Message:', message.substring(0, 100))
   
-  if (!twilioClient) {
-    console.log('⚠️ Twilio client NOT initialized - running in mock mode')
-    console.log('📱 WhatsApp (mock):', message.substring(0, 50) + '...')
-    return { success: false, reason: 'mock_mode' }
-  }
-  
-  try {
-    console.log('📞 Twilio client initialized, sending message...')
-    console.log('From:', process.env.TWILIO_WHATSAPP_NUMBER)
-    console.log('To:', `+91${phone}`)
-    
-    const result = await twilioClient.messages.create({
-      body: message,
-      from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
-      to: `whatsapp:+91${phone}`
-    })
-    
-    console.log('✅ Message sent successfully! SID:', result.sid)
-    return { success: true, sid: result.sid }
-  } catch (error) {
-    console.error('❌ WhatsApp send failed:', error.message)
-    console.error('Error code:', error.code)
-    
-    // Don't throw - just log and return failure
-    // This way registration still succeeds even if WhatsApp fails
-    return { success: false, reason: error.code || error.message }
-  }
+  // No SMS/WhatsApp - user sees referral code on success screen
+  return { success: false, method: 'screen', reason: 'notifications_disabled' }
 }
 
-// Send SMS via Gupshup (Indian SMS provider with trial credits)
-async function sendSMS_Gupshup(phone, message) {
-  console.log('📱 Attempting to send SMS via Gupshup to:', phone)
-  
-  if (!process.env.GUPSHUP_API_KEY) {
-    console.log('⚠️ Gupshup API key not configured')
-    return { success: false, reason: 'no_gupshup_key' }
-  }
-  
-  try {
-    const smsMessage = message.length > 160 ? message.substring(0, 157) + '...' : message
-    
-    console.log('📤 Sending SMS via Gupshup')
-    console.log('📝 Message:', smsMessage)
-    console.log('📞 Phone:', phone)
-    
-    // Gupshup v2 SMS API (using API Key in header)
-    const url = 'https://api.gupshup.io/sm/api/v1/msg'
-    
-    const params = new URLSearchParams({
-      channel: 'sms',
-      source: process.env.GUPSHUP_SOURCE || '917834811114', // Your Gupshup number
-      destination: phone,
-      message: smsMessage,
-      'src.name': process.env.GUPSHUP_APP_NAME || 'GUPSHP'
-    })
-    
-    console.log('🌐 Gupshup URL:', url)
-    console.log('📦 Gupshup params:', params.toString())
-    
-    const response = await axios.post(url, params, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'apikey': process.env.GUPSHUP_API_KEY
-      }
-    })
-    
-    console.log('📩 Gupshup response status:', response.status)
-    console.log('📩 Gupshup response data:', JSON.stringify(response.data, null, 2))
-    
-    // Gupshup v2 API returns JSON
-    // Success: {status: "success", messageId: "xxx"}
-    // Error: {status: "error", message: "error details"}
-    
-    if (response.data.status === 'success') {
-      console.log('✅ SMS sent via Gupshup!')
-      console.log('✅ Message ID:', response.data.messageId)
-      return { success: true, provider: 'gupshup', id: response.data.messageId }
-    } else {
-      console.error('❌ Gupshup API error')
-      console.error('❌ Error:', response.data.message || response.data)
-      return { success: false, reason: response.data.message || 'API error' }
-    }
-  } catch (error) {
-    console.error('❌ Gupshup request failed:', error.message)
-    if (error.response) {
-      console.error('❌ Error status:', error.response.status)
-      console.error('❌ Error data:', JSON.stringify(error.response.data, null, 2))
-    }
-    return { success: false, reason: error.response?.data?.message || error.message }
-  }
-}
-
-// Send SMS via Twilio (backup method when WhatsApp fails)
+// Send SMS via Twilio
 async function sendSMS_Twilio(phone, message) {
   console.log('📱 Attempting to send SMS via Twilio to:', phone)
   
@@ -192,8 +98,8 @@ async function sendSMS_Twilio(phone, message) {
     // Send SMS using Twilio (not WhatsApp)
     const result = await twilioClient.messages.create({
       body: smsMessage,
-      from: process.env.TWILIO_PHONE_NUMBER || process.env.TWILIO_WHATSAPP_NUMBER?.replace('whatsapp:', ''), // Use regular Twilio number
-      to: `+91${phone}` // Regular SMS, not WhatsApp
+      from: process.env.TWILIO_PHONE_NUMBER || process.env.TWILIO_WHATSAPP_NUMBER?.replace('whatsapp:', ''),
+      to: `+91${phone}`
     })
     
     console.log('✅ Twilio SMS sent! SID:', result.sid)
@@ -204,57 +110,10 @@ async function sendSMS_Twilio(phone, message) {
   }
 }
 
-// Send SMS (tries Gupshup first, then Twilio as fallback)
+// Send SMS (just uses Twilio)
 async function sendSMS(phone, message) {
   console.log('📱 Starting SMS send process for:', phone)
-  
-  // Try Gupshup first (Indian provider with trial credits)
-  if (process.env.GUPSHUP_API_KEY) {
-    console.log('🔄 Trying Gupshup SMS...')
-    const gupshupResult = await sendSMS_Gupshup(phone, message)
-    if (gupshupResult.success) {
-      return gupshupResult
-    }
-    console.log('⚠️ Gupshup failed:', gupshupResult.reason)
-  }
-  
-  // Fallback to Twilio SMS
-  console.log('🔄 Trying Twilio SMS as fallback...')
   return await sendSMS_Twilio(phone, message)
-}
-
-// Send notification (tries WhatsApp first, falls back to SMS)
-async function sendNotification(phone, message) {
-  console.log('📲 Sending notification to:', phone)
-  console.log('📋 Notification chain: WhatsApp → Gupshup SMS → Twilio SMS → Screen')
-  
-  // Try WhatsApp first (if configured)
-  if (twilioClient && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_WHATSAPP_NUMBER) {
-    const whatsappResult = await sendWhatsAppMessage(phone, message)
-    
-    if (whatsappResult.success) {
-      console.log('✅ WhatsApp sent successfully')
-      return { success: true, method: 'whatsapp', ...whatsappResult }
-    }
-    
-    console.log('⚠️ WhatsApp failed:', whatsappResult.reason)
-    console.log('🔄 Falling back to SMS...')
-  }
-  
-  // Try SMS (Gupshup → Twilio chain)
-  const smsResult = await sendSMS(phone, message)
-  
-  if (smsResult.success) {
-    console.log(`✅ SMS sent successfully via ${smsResult.provider}`)
-    return { success: true, method: 'sms', ...smsResult }
-  }
-  
-  console.log('⚠️ All SMS providers failed:', smsResult.reason)
-  
-  // All methods failed
-  console.log('ℹ️ All notification methods failed - referral code shown on screen only')
-  
-  return { success: false, method: 'none', reason: 'all_methods_failed' }
 }
 
 // Check for duplicate phone number
