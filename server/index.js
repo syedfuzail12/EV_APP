@@ -160,26 +160,23 @@ async function sendSMS(phone, message) {
 async function sendNotification(phone, message) {
   console.log('📲 Sending notification to:', phone)
   
-  // Try WhatsApp first
-  const whatsappResult = await sendWhatsAppMessage(phone, message)
-  
-  if (whatsappResult.success) {
-    console.log('✅ WhatsApp sent successfully')
-    return { success: true, method: 'whatsapp', ...whatsappResult }
+  // Try WhatsApp first (if configured)
+  if (twilioClient && process.env.TWILIO_ACCOUNT_SID) {
+    const whatsappResult = await sendWhatsAppMessage(phone, message)
+    
+    if (whatsappResult.success) {
+      console.log('✅ WhatsApp sent successfully')
+      return { success: true, method: 'whatsapp', ...whatsappResult }
+    }
+    
+    console.log('⚠️ WhatsApp failed:', whatsappResult.reason)
   }
   
-  console.log('⚠️ WhatsApp failed, trying SMS fallback...')
+  // SMS disabled - no payment required
+  // Users will see referral code on success screen instead
+  console.log('ℹ️ SMS disabled - referral code shown on screen')
   
-  // Fallback to SMS
-  const smsResult = await sendSMS(phone, message)
-  
-  if (smsResult.success) {
-    console.log('✅ SMS sent successfully')
-    return { success: true, method: 'sms', ...smsResult }
-  }
-  
-  console.log('❌ All notification methods failed')
-  return { success: false, method: 'none', reason: 'all_failed' }
+  return { success: false, method: 'none', reason: 'notification_disabled' }
 }
 
 // Check for duplicate phone number
