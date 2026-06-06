@@ -111,6 +111,44 @@ async function sendWhatsAppMessage(phone, message) {
   }
 }
 
+// Send SMS via TextLocal (FREE - 25 SMS/day for India, no KYC)
+async function sendSMS_TextLocal(phone, message) {
+  console.log('📱 Attempting to send SMS via TextLocal to:', phone)
+  
+  if (!process.env.TEXTLOCAL_API_KEY) {
+    console.log('⚠️ TextLocal API key not configured')
+    return { success: false, reason: 'no_textlocal_key' }
+  }
+  
+  try {
+    const smsMessage = message.length > 160 ? message.substring(0, 157) + '...' : message
+    
+    console.log('📤 Sending SMS via TextLocal')
+    
+    const params = new URLSearchParams({
+      apikey: process.env.TEXTLOCAL_API_KEY,
+      numbers: phone, // 10 digit number
+      message: smsMessage,
+      sender: process.env.TEXTLOCAL_SENDER || 'TXTLCL'
+    })
+    
+    const response = await axios.post('https://api.textlocal.in/send/', params)
+    
+    console.log('📩 TextLocal response:', JSON.stringify(response.data, null, 2))
+    
+    if (response.data.status === 'success') {
+      console.log('✅ SMS sent via TextLocal!')
+      return { success: true, provider: 'textlocal', id: response.data.message_id }
+    } else {
+      console.error('❌ TextLocal failed:', response.data)
+      return { success: false, reason: response.data.message || 'API error' }
+    }
+  } catch (error) {
+    console.error('❌ TextLocal failed:', error.message)
+    return { success: false, reason: error.message }
+  }
+}
+
 // Send SMS via Twilio (backup method when WhatsApp fails)
 async function sendSMS_Twilio(phone, message) {
   console.log('📱 Attempting to send SMS via Twilio to:', phone)
@@ -147,7 +185,10 @@ async function sendSMS(phone, message) {
   console.log('📝 SMS preview:', message.substring(0, 100))
   
   if (!process.env.MSG91_AUTH_KEY) {
-    console.log('⚠️ MSG91 API key not configured - trying Twilio SMS instead')
+    console.log('⚠️ MSG91 API key not configured - trying alternatives')
+    // Try TextLocal first, then Twilio
+    const textlocalResult = await sendSMS_TextLocal(phone, message)
+    if (textlocalResult.success) return textlocalResult
     return await sendSMS_Twilio(phone, message)
   }
   
@@ -187,7 +228,10 @@ async function sendSMS(phone, message) {
       return { success: true, provider: 'msg91', id: response.data.request_id || response.data.message }
     } else {
       console.error('❌ MSG91 failed:', response.data)
-      console.log('🔄 Trying Twilio SMS as fallback...')
+      console.log('🔄 Trying TextLocal as fallback...')
+      const textlocalResult = await sendSMS_TextLocal(phone, message)
+      if (textlocalResult.success) return textlocalResult
+      console.log('🔄 Trying Twilio SMS as final fallback...')
       return await sendSMS_Twilio(phone, message)
     }
   } catch (error) {
@@ -196,7 +240,10 @@ async function sendSMS(phone, message) {
       console.error('Error status:', error.response.status)
       console.error('Error data:', error.response.data)
     }
-    console.log('🔄 Trying Twilio SMS as fallback...')
+    console.log('🔄 Trying TextLocal as fallback...')
+    const textlocalResult = await sendSMS_TextLocal(phone, message)
+    if (textlocalResult.success) return textlocalResult
+    console.log('🔄 Trying Twilio SMS as final fallback...')
     return await sendSMS_Twilio(phone, message)
   }
 }
@@ -204,7 +251,7 @@ async function sendSMS(phone, message) {
 // Send notification (tries WhatsApp first, falls back to SMS)
 async function sendNotification(phone, message) {
   console.log('📲 Sending notification to:', phone)
-  console.log('📋 Notification chain: WhatsApp → MSG91 SMS → Twilio SMS → Screen')
+  console.log('📋 Notification chain: WhatsApp → MSG91 → TextLocal → Twilio SMS → Screen')
   
   // Try WhatsApp first (if configured)
   if (twilioClient && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_WHATSAPP_NUMBER) {
@@ -219,7 +266,7 @@ async function sendNotification(phone, message) {
     console.log('🔄 Falling back to SMS...')
   }
   
-  // Try SMS (MSG91 or Twilio as fallback)
+  // Try SMS (MSG91 → TextLocal → Twilio chain)
   const smsResult = await sendSMS(phone, message)
   
   if (smsResult.success) {
@@ -227,7 +274,7 @@ async function sendNotification(phone, message) {
     return { success: true, method: 'sms', ...smsResult }
   }
   
-  console.log('⚠️ SMS also failed:', smsResult.reason)
+  console.log('⚠️ All SMS providers failed:', smsResult.reason)
   
   // All methods failed
   console.log('ℹ️ All notification methods failed - referral code shown on screen only')
