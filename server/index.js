@@ -127,63 +127,50 @@ async function sendSMS_Gupshup(phone, message) {
     console.log('📝 Message:', smsMessage)
     console.log('📞 Phone:', phone)
     
-    // Gupshup Simple SMS API
-    const url = 'https://enterprise.smsgupshup.com/GatewayAPI/rest'
+    // Gupshup v2 SMS API (using API Key in header)
+    const url = 'https://api.gupshup.io/sm/api/v1/msg'
     
     const params = new URLSearchParams({
-      method: 'sendMessage',
-      send_to: phone,
-      msg: smsMessage,
-      msg_type: 'TEXT',
-      userid: process.env.GUPSHUP_USERID || '',
-      auth_scheme: 'plain',
-      password: process.env.GUPSHUP_PASSWORD || '',
-      v: '1.1',
-      format: 'text'
+      channel: 'sms',
+      source: process.env.GUPSHUP_SOURCE || '917834811114', // Your Gupshup number
+      destination: phone,
+      message: smsMessage,
+      'src.name': process.env.GUPSHUP_APP_NAME || 'GUPSHP'
     })
     
     console.log('🌐 Gupshup URL:', url)
-    console.log('📦 Gupshup params:', params.toString().replace(/password=[^&]*/, 'password=***'))
+    console.log('📦 Gupshup params:', params.toString())
     
     const response = await axios.post(url, params, {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'apikey': process.env.GUPSHUP_API_KEY
       }
     })
     
     console.log('📩 Gupshup response status:', response.status)
-    console.log('📩 Gupshup response data:', response.data)
+    console.log('📩 Gupshup response data:', JSON.stringify(response.data, null, 2))
     
-    // Gupshup returns plain text response
-    // Success: "success | message-id"
-    // Error: "error | error-code | error-message"
+    // Gupshup v2 API returns JSON
+    // Success: {status: "success", messageId: "xxx"}
+    // Error: {status: "error", message: "error details"}
     
-    const responseText = response.data.toString().trim()
-    
-    if (responseText.startsWith('success')) {
-      const messageId = responseText.split('|')[1]?.trim()
+    if (response.data.status === 'success') {
       console.log('✅ SMS sent via Gupshup!')
-      console.log('✅ Message ID:', messageId)
-      return { success: true, provider: 'gupshup', id: messageId || 'sent' }
-    } else if (responseText.startsWith('error')) {
-      const errorParts = responseText.split('|')
-      const errorCode = errorParts[1]?.trim()
-      const errorMessage = errorParts[2]?.trim()
-      console.error('❌ Gupshup API error')
-      console.error('❌ Error code:', errorCode)
-      console.error('❌ Error message:', errorMessage)
-      return { success: false, reason: `${errorCode}: ${errorMessage}` }
+      console.log('✅ Message ID:', response.data.messageId)
+      return { success: true, provider: 'gupshup', id: response.data.messageId }
     } else {
-      console.error('❌ Gupshup unexpected response:', responseText)
-      return { success: false, reason: 'Unexpected response format' }
+      console.error('❌ Gupshup API error')
+      console.error('❌ Error:', response.data.message || response.data)
+      return { success: false, reason: response.data.message || 'API error' }
     }
   } catch (error) {
     console.error('❌ Gupshup request failed:', error.message)
     if (error.response) {
       console.error('❌ Error status:', error.response.status)
-      console.error('❌ Error data:', error.response.data)
+      console.error('❌ Error data:', JSON.stringify(error.response.data, null, 2))
     }
-    return { success: false, reason: error.message }
+    return { success: false, reason: error.response?.data?.message || error.message }
   }
 }
 
