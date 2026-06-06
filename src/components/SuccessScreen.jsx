@@ -7,7 +7,7 @@ function SuccessScreen() {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
-  const { referralCode, points } = location.state || { referralCode: 'RW-0000', points: 10 }
+  const { referralCode, points, whatsappSent } = location.state || { referralCode: 'RW-0000', points: 10, whatsappSent: false }
   const [copied, setCopied] = useState(false)
   const [qrCode, setQrCode] = useState(null)
   const [loadingQr, setLoadingQr] = useState(false)
@@ -42,6 +42,20 @@ function SuccessScreen() {
 
       <h1 className={styles.title}>{t('success')}</h1>
       
+      {!whatsappSent && (
+        <div style={{
+          backgroundColor: '#fff3cd',
+          border: '1px solid #ffc107',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          margin: '16px 0',
+          fontSize: '14px',
+          color: '#856404'
+        }}>
+          📱 WhatsApp confirmation couldn't be sent. Please save your referral code below!
+        </div>
+      )}
+
       <div className={styles.card}>
         <div className={styles.codeSection}>
           <label className={styles.label}>{t('yourReferralCode')}</label>

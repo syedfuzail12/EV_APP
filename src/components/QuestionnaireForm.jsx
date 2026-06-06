@@ -117,7 +117,13 @@ function QuestionnaireForm() {
         language: i18n.language,
         timestamp: new Date().toISOString()
       })
-      navigate('/success', { state: { referralCode: result.referralCode, points: result.points } })
+      navigate('/success', { 
+        state: { 
+          referralCode: result.referralCode, 
+          points: result.points,
+          whatsappSent: result.whatsappSent 
+        } 
+      })
     } catch (error) {
       alert('Submission failed. Please try again.')
       setLoading(false)
