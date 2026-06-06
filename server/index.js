@@ -905,6 +905,8 @@ function processWhatsAppResponse(session, message) {
   if (step === 'referralCode') {
     if (!text.toLowerCase().includes('skip')) {
       session.data.referredByCode = text.toUpperCase()
+    } else {
+      session.data.referredByCode = null
     }
     session.step = 'complete'
     return 'complete' // Signal to save data
@@ -916,6 +918,15 @@ function processWhatsAppResponse(session, message) {
 // Save WhatsApp rider data
 async function saveWhatsAppRider(sessionData) {
   const referralCode = generateReferralCode()
+  
+  // Log session data for debugging
+  console.log('💾 Saving rider with data:', {
+    fullName: sessionData.fullName,
+    whatsapp: sessionData.whatsapp,
+    city: sessionData.city,
+    platform: sessionData.platform
+  })
+  
   const segment = segmentRider(sessionData)
 
   const riderData = {
@@ -1061,6 +1072,8 @@ app.post('/api/whatsapp', async (req, res) => {
         whatsappSessions.delete(from)
       } catch (saveError) {
         console.error('❌ Save error:', saveError)
+        console.error('❌ Error details:', saveError.message)
+        console.error('❌ Session data:', JSON.stringify(session.data))
         await sendNotification(from, "❌ Sorry, something went wrong. Please try again or type 'restart'")
       }
     } else {
