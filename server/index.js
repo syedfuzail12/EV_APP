@@ -1056,23 +1056,17 @@ app.post('/api/whatsapp', async (req, res) => {
         // Generate and send QR code
         const qrUrl = `${process.env.APP_URL}/?ref=${referralCode}`
         console.log('📱 Generating QR for:', qrUrl)
-        const qrCodeData = await QRCode.toDataURL(qrUrl, {
-          width: 300,
-          margin: 2,
-          color: {
-            dark: '#000000',
-            light: '#FFFFFF'
-          }
-        })
         
-        // Send QR code as media
+        // Send QR code link instead of image (Twilio doesn't accept data URLs)
+        const qrMessage = WHATSAPP_QUESTIONS[lang].qrCode.replace('{qrImage}', '')
+        const qrTextMessage = `${qrMessage}\n\n🔗 *Your registration link with QR:*\n${process.env.APP_URL}/qr/${referralCode}\n\n📲 *Or share this direct link:*\n${qrUrl}`
+        
         if (twilioClient) {
-          console.log('📤 Sending QR via Twilio')
+          console.log('📤 Sending QR link via Twilio')
           await twilioClient.messages.create({
-            body: WHATSAPP_QUESTIONS[lang].qrCode.replace('{qrImage}', ''),
+            body: qrTextMessage,
             from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
-            to: `whatsapp:+91${from}`,
-            mediaUrl: [qrCodeData]
+            to: `whatsapp:+91${from}`
           })
         } else {
           console.log('⚠️ Twilio client not initialized')
