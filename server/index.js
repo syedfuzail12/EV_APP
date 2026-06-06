@@ -1005,9 +1005,11 @@ app.post('/api/whatsapp', async (req, res) => {
       console.log('🔄 Restart/Start command received')
       whatsappSessions.delete(from)
       const session = getWhatsAppSession(from)
-      const welcomeMsg = "🌟 *Road Warrior Registration*\n\nSelect your language:\n\n1 - English\n2 - हिंदी (Hindi)"
+      const welcomeMsg = "🌟 *Road Warrior Registration*\n\nSelect your language:\n\n1 - English\n2 - हिंदी (Hindi)\n3 - ಕನ್ನಡ (Kannada)"
       console.log('📤 Sending welcome message')
       await sendNotification(from, welcomeMsg)
+      return res.status(200).send('OK')
+    }
       return res.status(200).send('OK')
     }
 
@@ -1015,16 +1017,7 @@ app.post('/api/whatsapp', async (req, res) => {
     const session = getWhatsAppSession(from)
     console.log('📊 Session:', { step: session.step, language: session.language })
 
-    // First time user (session at language step)
-    if (session.step === 'language') {
-      const welcomeMsg = "🌟 *Road Warrior Registration*\n\nSelect your language:\n\n1 - English\n2 - हिंदी (Hindi)\n3 - ಕನ್ನಡ (Kannada)"
-      console.log('👋 First time user, sending language selection')
-      await sendNotification(from, welcomeMsg)
-      // Don't process the message further, wait for language selection
-      return res.status(200).send('OK')
-    }
-
-    // Process response
+    // Process response (this handles language selection too)
     console.log('⚙️ Processing response')
     const response = processWhatsAppResponse(session, body)
     console.log('💬 Response:', response.substring(0, 100))
