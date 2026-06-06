@@ -124,35 +124,51 @@ async function sendSMS_2Factor(phone, message) {
     const smsMessage = message.length > 160 ? message.substring(0, 157) + '...' : message
     
     console.log('📤 Sending SMS via 2Factor.in')
+    console.log('📝 Message:', smsMessage)
+    console.log('📞 Phone:', phone)
     
-    // 2Factor SMS API
+    // 2Factor Transactional SMS API (correct endpoint)
     const url = `https://2factor.in/API/V1/${process.env.TWOFACTOR_API_KEY}/ADDON_SERVICES/SEND/TSMS`
     
-    const response = await axios.post(url, {
+    const payload = {
       From: process.env.TWOFACTOR_SENDER || 'TFACTR',
       To: phone,
       Msg: smsMessage
-    }, {
+    }
+    
+    console.log('🌐 2Factor URL:', url)
+    console.log('📦 2Factor payload:', JSON.stringify(payload, null, 2))
+    
+    const response = await axios.post(url, payload, {
       headers: {
         'Content-Type': 'application/json'
       }
     })
     
-    console.log('📩 2Factor response:', JSON.stringify(response.data, null, 2))
+    console.log('📩 2Factor response status:', response.status)
+    console.log('📩 2Factor response data:', JSON.stringify(response.data, null, 2))
     
-    if (response.data.Status === 'Success' || response.data.Details) {
+    // 2Factor returns Status: "Error" or "Success"
+    // Check for actual success, not just response presence
+    if (response.data.Status === 'Success' && response.data.Details && !response.data.Details.includes('Missing')) {
       console.log('✅ SMS sent via 2Factor.in!')
+      console.log('✅ Message ID:', response.data.Details)
       return { success: true, provider: '2factor', id: response.data.Details }
+    } else if (response.data.Status === 'Error') {
+      console.error('❌ 2Factor API returned error status')
+      console.error('❌ Error:', response.data.Details)
+      return { success: false, reason: response.data.Details || 'API returned error' }
     } else {
-      console.error('❌ 2Factor failed:', response.data)
-      return { success: false, reason: response.data.Details || 'API error' }
+      console.error('❌ 2Factor unexpected response:', response.data)
+      return { success: false, reason: 'Unexpected response format' }
     }
   } catch (error) {
-    console.error('❌ 2Factor failed:', error.message)
+    console.error('❌ 2Factor request failed:', error.message)
     if (error.response) {
-      console.error('Error response:', error.response.data)
+      console.error('❌ Error status:', error.response.status)
+      console.error('❌ Error data:', JSON.stringify(error.response.data, null, 2))
     }
-    return { success: false, reason: error.message }
+    return { success: false, reason: error.response?.data?.Details || error.message }
   }
 }
 
