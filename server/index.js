@@ -111,67 +111,79 @@ async function sendWhatsAppMessage(phone, message) {
   }
 }
 
-// Send SMS via Kaleyra (Indian SMS provider with trial credits)
-async function sendSMS_Kaleyra(phone, message) {
-  console.log('📱 Attempting to send SMS via Kaleyra to:', phone)
+// Send SMS via Gupshup (Indian SMS provider with trial credits)
+async function sendSMS_Gupshup(phone, message) {
+  console.log('📱 Attempting to send SMS via Gupshup to:', phone)
   
-  if (!process.env.KALEYRA_API_KEY || !process.env.KALEYRA_SID) {
-    console.log('⚠️ Kaleyra credentials not configured')
-    return { success: false, reason: 'no_kaleyra_credentials' }
+  if (!process.env.GUPSHUP_API_KEY) {
+    console.log('⚠️ Gupshup API key not configured')
+    return { success: false, reason: 'no_gupshup_key' }
   }
   
   try {
     const smsMessage = message.length > 160 ? message.substring(0, 157) + '...' : message
     
-    console.log('📤 Sending SMS via Kaleyra')
+    console.log('📤 Sending SMS via Gupshup')
     console.log('📝 Message:', smsMessage)
     console.log('📞 Phone:', phone)
     
-    // Kaleyra SMS API v2
-    const url = `https://api.kaleyra.io/v1/${process.env.KALEYRA_SID}/messages`
+    // Gupshup Simple SMS API
+    const url = 'https://enterprise.smsgupshup.com/GatewayAPI/rest'
     
-    const payload = {
-      to: phone,
-      type: 'OTP', // or 'TXN' for transactional
-      sender: process.env.KALEYRA_SENDER || 'KALERA',
-      body: smsMessage,
-      callback_url: '' // Optional webhook
-    }
+    const params = new URLSearchParams({
+      method: 'sendMessage',
+      send_to: phone,
+      msg: smsMessage,
+      msg_type: 'TEXT',
+      userid: process.env.GUPSHUP_USERID || '',
+      auth_scheme: 'plain',
+      password: process.env.GUPSHUP_PASSWORD || '',
+      v: '1.1',
+      format: 'text'
+    })
     
-    console.log('🌐 Kaleyra URL:', url)
-    console.log('📦 Kaleyra payload:', JSON.stringify(payload, null, 2))
+    console.log('🌐 Gupshup URL:', url)
+    console.log('📦 Gupshup params:', params.toString().replace(/password=[^&]*/, 'password=***'))
     
-    const response = await axios.post(url, payload, {
+    const response = await axios.post(url, params, {
       headers: {
-        'api-key': process.env.KALEYRA_API_KEY,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/x-www-form-urlencoded'
       }
     })
     
-    console.log('📩 Kaleyra response status:', response.status)
-    console.log('📩 Kaleyra response data:', JSON.stringify(response.data, null, 2))
+    console.log('📩 Gupshup response status:', response.status)
+    console.log('📩 Gupshup response data:', response.data)
     
-    // Kaleyra returns 200/202 for success
-    if (response.status === 200 || response.status === 202) {
-      console.log('✅ SMS sent via Kaleyra!')
-      console.log('✅ Message ID:', response.data.id || response.data.message_id)
-      return { 
-        success: true, 
-        provider: 'kaleyra', 
-        id: response.data.id || response.data.message_id || 'sent' 
-      }
+    // Gupshup returns plain text response
+    // Success: "success | message-id"
+    // Error: "error | error-code | error-message"
+    
+    const responseText = response.data.toString().trim()
+    
+    if (responseText.startsWith('success')) {
+      const messageId = responseText.split('|')[1]?.trim()
+      console.log('✅ SMS sent via Gupshup!')
+      console.log('✅ Message ID:', messageId)
+      return { success: true, provider: 'gupshup', id: messageId || 'sent' }
+    } else if (responseText.startsWith('error')) {
+      const errorParts = responseText.split('|')
+      const errorCode = errorParts[1]?.trim()
+      const errorMessage = errorParts[2]?.trim()
+      console.error('❌ Gupshup API error')
+      console.error('❌ Error code:', errorCode)
+      console.error('❌ Error message:', errorMessage)
+      return { success: false, reason: `${errorCode}: ${errorMessage}` }
     } else {
-      console.error('❌ Kaleyra unexpected status:', response.status)
-      console.error('❌ Response:', response.data)
-      return { success: false, reason: response.data.message || 'Unexpected response' }
+      console.error('❌ Gupshup unexpected response:', responseText)
+      return { success: false, reason: 'Unexpected response format' }
     }
   } catch (error) {
-    console.error('❌ Kaleyra request failed:', error.message)
+    console.error('❌ Gupshup request failed:', error.message)
     if (error.response) {
       console.error('❌ Error status:', error.response.status)
-      console.error('❌ Error data:', JSON.stringify(error.response.data, null, 2))
+      console.error('❌ Error data:', error.response.data)
     }
-    return { success: false, reason: error.response?.data?.message || error.message }
+    return { success: false, reason: error.message }
   }
 }
 
@@ -205,18 +217,18 @@ async function sendSMS_Twilio(phone, message) {
   }
 }
 
-// Send SMS (tries Kaleyra first, then Twilio as fallback)
+// Send SMS (tries Gupshup first, then Twilio as fallback)
 async function sendSMS(phone, message) {
   console.log('📱 Starting SMS send process for:', phone)
   
-  // Try Kaleyra first (Indian provider with trial credits)
-  if (process.env.KALEYRA_API_KEY && process.env.KALEYRA_SID) {
-    console.log('🔄 Trying Kaleyra SMS...')
-    const kaleyraResult = await sendSMS_Kaleyra(phone, message)
-    if (kaleyraResult.success) {
-      return kaleyraResult
+  // Try Gupshup first (Indian provider with trial credits)
+  if (process.env.GUPSHUP_API_KEY) {
+    console.log('🔄 Trying Gupshup SMS...')
+    const gupshupResult = await sendSMS_Gupshup(phone, message)
+    if (gupshupResult.success) {
+      return gupshupResult
     }
-    console.log('⚠️ Kaleyra failed:', kaleyraResult.reason)
+    console.log('⚠️ Gupshup failed:', gupshupResult.reason)
   }
   
   // Fallback to Twilio SMS
@@ -227,7 +239,7 @@ async function sendSMS(phone, message) {
 // Send notification (tries WhatsApp first, falls back to SMS)
 async function sendNotification(phone, message) {
   console.log('📲 Sending notification to:', phone)
-  console.log('📋 Notification chain: WhatsApp → Kaleyra SMS → Twilio SMS → Screen')
+  console.log('📋 Notification chain: WhatsApp → Gupshup SMS → Twilio SMS → Screen')
   
   // Try WhatsApp first (if configured)
   if (twilioClient && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_WHATSAPP_NUMBER) {
@@ -242,7 +254,7 @@ async function sendNotification(phone, message) {
     console.log('🔄 Falling back to SMS...')
   }
   
-  // Try SMS (Kaleyra → Twilio chain)
+  // Try SMS (Gupshup → Twilio chain)
   const smsResult = await sendSMS(phone, message)
   
   if (smsResult.success) {
