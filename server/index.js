@@ -587,6 +587,23 @@ app.get('/api/stats', async (req, res) => {
   }
 })
 
+// Temporary endpoint to get Render's outbound IP
+app.get('/api/ip', async (req, res) => {
+  try {
+    // Get Render's outbound IP by calling external service
+    const response = await axios.get('https://api.ipify.org?format=json')
+    res.json({ 
+      ip: response.data.ip,
+      message: 'Add this IP to MSG91 authkey whitelist'
+    })
+  } catch (error) {
+    res.json({ 
+      error: 'Could not get IP',
+      alternative: 'Check Render logs for actual IP making request to MSG91'
+    })
+  }
+})
+
 // ============================================
 // WHATSAPP CHATBOT - Interactive Questionnaire
 // ============================================
