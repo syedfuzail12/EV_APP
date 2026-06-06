@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
 import QRCode from 'qrcode'
 import axios from 'axios'
+import msg91 from 'msg91-sdk'
 
 dotenv.config()
 
@@ -111,43 +112,46 @@ async function sendWhatsAppMessage(phone, message) {
   }
 }
 
-// Send SMS via Fast2SMS (FREE - 100+ SMS/day for India)
+// Send SMS via MSG91 (FREE - 25 SMS/day for India)
 async function sendSMS(phone, message) {
-  console.log('📱 Attempting to send SMS to:', phone)
+  console.log('📱 Attempting to send SMS via MSG91 to:', phone)
   console.log('📝 SMS preview:', message.substring(0, 100))
   
-  if (!process.env.FAST2SMS_API_KEY) {
-    console.log('⚠️ Fast2SMS API key not configured - skipping SMS')
+  if (!process.env.MSG91_AUTH_KEY) {
+    console.log('⚠️ MSG91 API key not configured - skipping SMS')
+    console.log('ℹ️ Get your free API key from: https://msg91.com/signup')
     return { success: false, reason: 'no_api_key' }
   }
   
   try {
-    console.log('🔑 Fast2SMS API key found, sending SMS...')
+    console.log('🔑 MSG91 API key found, sending SMS...')
+    
+    // Initialize MSG91 client
+    const msg91Client = new msg91.default(process.env.MSG91_AUTH_KEY)
     
     // Truncate message to 160 characters (SMS limit)
     const smsMessage = message.length > 160 ? message.substring(0, 157) + '...' : message
     
-    // Fast2SMS requires specific format - using form-urlencoded
-    const params = new URLSearchParams({
-      authorization: process.env.FAST2SMS_API_KEY,
+    console.log('📤 Sending SMS to:', phone)
+    console.log('📝 Message:', smsMessage)
+    
+    // Send SMS using MSG91 SDK
+    const response = await msg91Client.sendSMS({
+      flow_id: process.env.MSG91_FLOW_ID || undefined, // Optional: Use DLT template ID if available
+      sender: process.env.MSG91_SENDER_ID || 'RDWRRR', // 6 char sender ID
+      mobiles: '91' + phone, // MSG91 expects country code + number
       message: smsMessage,
-      language: 'english',
-      route: 'q',
-      numbers: phone
+      route: 4 // Route 4 is for Transactional SMS (most reliable)
     })
     
-    console.log('📤 Sending SMS to:', phone)
+    console.log('📩 MSG91 response:', JSON.stringify(response, null, 2))
     
-    const response = await axios.get(`https://www.fast2sms.com/dev/bulkV2?${params.toString()}`)
-    
-    console.log('📩 Fast2SMS response:', JSON.stringify(response.data, null, 2))
-    
-    if (response.data.return === true || response.data.status_code === 200) {
-      console.log('✅ SMS sent successfully via Fast2SMS!')
-      return { success: true, provider: 'fast2sms', id: response.data.request_id }
+    if (response.type === 'success' || response.message === 'SMS sent successfully') {
+      console.log('✅ SMS sent successfully via MSG91!')
+      return { success: true, provider: 'msg91', id: response.request_id }
     } else {
-      console.error('❌ Fast2SMS failed:', response.data.message || response.data)
-      return { success: false, reason: response.data.message || 'API error' }
+      console.error('❌ MSG91 failed:', response.message || response)
+      return { success: false, reason: response.message || 'API error' }
     }
   } catch (error) {
     console.error('❌ SMS send failed:', error.message)
@@ -170,13 +174,25 @@ async function sendNotification(phone, message) {
     }
     
     console.log('⚠️ WhatsApp failed:', whatsappResult.reason)
+    console.log('🔄 Falling back to SMS via MSG91...')
   }
   
-  // SMS disabled - no payment required
-  // Users will see referral code on success screen instead
-  console.log('ℹ️ SMS disabled - referral code shown on screen')
+  // Try MSG91 SMS (FREE - 25 SMS/day)
+  if (process.env.MSG91_AUTH_KEY) {
+    const smsResult = await sendSMS(phone, message)
+    
+    if (smsResult.success) {
+      console.log('✅ SMS sent successfully via MSG91')
+      return { success: true, method: 'sms', ...smsResult }
+    }
+    
+    console.log('⚠️ SMS also failed:', smsResult.reason)
+  }
   
-  return { success: false, method: 'none', reason: 'notification_disabled' }
+  // Both methods failed or not configured
+  console.log('ℹ️ All notification methods failed - referral code shown on screen only')
+  
+  return { success: false, method: 'none', reason: 'all_methods_failed' }
 }
 
 // Check for duplicate phone number
