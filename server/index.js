@@ -1010,8 +1010,6 @@ app.post('/api/whatsapp', async (req, res) => {
       await sendNotification(from, welcomeMsg)
       return res.status(200).send('OK')
     }
-      return res.status(200).send('OK')
-    }
 
     // Get or create session
     const session = getWhatsAppSession(from)
