@@ -111,102 +111,67 @@ async function sendWhatsAppMessage(phone, message) {
   }
 }
 
-// Send SMS via 2Factor.in (FREE - 10 SMS/day for India, no KYC)
-async function sendSMS_2Factor(phone, message) {
-  console.log('📱 Attempting to send SMS via 2Factor.in to:', phone)
+// Send SMS via Kaleyra (Indian SMS provider with trial credits)
+async function sendSMS_Kaleyra(phone, message) {
+  console.log('📱 Attempting to send SMS via Kaleyra to:', phone)
   
-  if (!process.env.TWOFACTOR_API_KEY) {
-    console.log('⚠️ 2Factor API key not configured')
-    return { success: false, reason: 'no_2factor_key' }
+  if (!process.env.KALEYRA_API_KEY || !process.env.KALEYRA_SID) {
+    console.log('⚠️ Kaleyra credentials not configured')
+    return { success: false, reason: 'no_kaleyra_credentials' }
   }
   
   try {
     const smsMessage = message.length > 160 ? message.substring(0, 157) + '...' : message
     
-    console.log('📤 Sending SMS via 2Factor.in')
+    console.log('📤 Sending SMS via Kaleyra')
     console.log('📝 Message:', smsMessage)
     console.log('📞 Phone:', phone)
     
-    // 2Factor Transactional SMS API (correct endpoint)
-    const url = `https://2factor.in/API/V1/${process.env.TWOFACTOR_API_KEY}/ADDON_SERVICES/SEND/TSMS`
+    // Kaleyra SMS API v2
+    const url = `https://api.kaleyra.io/v1/${process.env.KALEYRA_SID}/messages`
     
     const payload = {
-      From: process.env.TWOFACTOR_SENDER || 'TFACTR',
-      To: phone,
-      Msg: smsMessage
+      to: phone,
+      type: 'OTP', // or 'TXN' for transactional
+      sender: process.env.KALEYRA_SENDER || 'KALERA',
+      body: smsMessage,
+      callback_url: '' // Optional webhook
     }
     
-    console.log('🌐 2Factor URL:', url)
-    console.log('📦 2Factor payload:', JSON.stringify(payload, null, 2))
+    console.log('🌐 Kaleyra URL:', url)
+    console.log('📦 Kaleyra payload:', JSON.stringify(payload, null, 2))
     
     const response = await axios.post(url, payload, {
       headers: {
+        'api-key': process.env.KALEYRA_API_KEY,
         'Content-Type': 'application/json'
       }
     })
     
-    console.log('📩 2Factor response status:', response.status)
-    console.log('📩 2Factor response data:', JSON.stringify(response.data, null, 2))
+    console.log('📩 Kaleyra response status:', response.status)
+    console.log('📩 Kaleyra response data:', JSON.stringify(response.data, null, 2))
     
-    // 2Factor returns Status: "Error" or "Success"
-    // Check for actual success, not just response presence
-    if (response.data.Status === 'Success' && response.data.Details && !response.data.Details.includes('Missing')) {
-      console.log('✅ SMS sent via 2Factor.in!')
-      console.log('✅ Message ID:', response.data.Details)
-      return { success: true, provider: '2factor', id: response.data.Details }
-    } else if (response.data.Status === 'Error') {
-      console.error('❌ 2Factor API returned error status')
-      console.error('❌ Error:', response.data.Details)
-      return { success: false, reason: response.data.Details || 'API returned error' }
+    // Kaleyra returns 200/202 for success
+    if (response.status === 200 || response.status === 202) {
+      console.log('✅ SMS sent via Kaleyra!')
+      console.log('✅ Message ID:', response.data.id || response.data.message_id)
+      return { 
+        success: true, 
+        provider: 'kaleyra', 
+        id: response.data.id || response.data.message_id || 'sent' 
+      }
     } else {
-      console.error('❌ 2Factor unexpected response:', response.data)
-      return { success: false, reason: 'Unexpected response format' }
+      console.error('❌ Kaleyra unexpected status:', response.status)
+      console.error('❌ Response:', response.data)
+      return { success: false, reason: response.data.message || 'Unexpected response' }
     }
   } catch (error) {
-    console.error('❌ 2Factor request failed:', error.message)
+    console.error('❌ Kaleyra request failed:', error.message)
     if (error.response) {
       console.error('❌ Error status:', error.response.status)
       console.error('❌ Error data:', JSON.stringify(error.response.data, null, 2))
     }
-    return { success: false, reason: error.response?.data?.Details || error.message }
-  }
-}
-
-// Send SMS via TextLocal (FREE - 25 SMS/day for India, no KYC)
-async function sendSMS_TextLocal(phone, message) {
-  console.log('📱 Attempting to send SMS via TextLocal to:', phone)
-  
-  if (!process.env.TEXTLOCAL_API_KEY) {
-    console.log('⚠️ TextLocal API key not configured')
-    return { success: false, reason: 'no_textlocal_key' }
-  }
-  
-  try {
-    const smsMessage = message.length > 160 ? message.substring(0, 157) + '...' : message
-    
-    console.log('📤 Sending SMS via TextLocal')
-    
-    const params = new URLSearchParams({
-      apikey: process.env.TEXTLOCAL_API_KEY,
-      numbers: phone, // 10 digit number
-      message: smsMessage,
-      sender: process.env.TEXTLOCAL_SENDER || 'TXTLCL'
-    })
-    
-    const response = await axios.post('https://api.textlocal.in/send/', params)
-    
-    console.log('📩 TextLocal response:', JSON.stringify(response.data, null, 2))
-    
-    if (response.data.status === 'success') {
-      console.log('✅ SMS sent via TextLocal!')
-      return { success: true, provider: 'textlocal', id: response.data.message_id }
-    } else {
-      console.error('❌ TextLocal failed:', response.data)
-      return { success: false, reason: response.data.message || 'API error' }
-    }
-  } catch (error) {
-    console.error('❌ TextLocal failed:', error.message)
-    return { success: false, reason: error.message }
+    return { success: false, reason: error.response?.data?.message || error.message }
   }
 }
 
@@ -240,93 +205,29 @@ async function sendSMS_Twilio(phone, message) {
   }
 }
 
-// Send SMS via MSG91 (FREE - 25 SMS/day for India) - Using Simple SMS API
+// Send SMS (tries Kaleyra first, then Twilio as fallback)
 async function sendSMS(phone, message) {
-  console.log('📱 Attempting to send SMS via MSG91 to:', phone)
-  console.log('📝 SMS preview:', message.substring(0, 100))
+  console.log('📱 Starting SMS send process for:', phone)
   
-  if (!process.env.MSG91_AUTH_KEY) {
-    console.log('⚠️ MSG91 API key not configured - trying alternatives')
-    // Try 2Factor first, then TextLocal, then Twilio
-    const twofactorResult = await sendSMS_2Factor(phone, message)
-    if (twofactorResult.success) return twofactorResult
-    
-    const textlocalResult = await sendSMS_TextLocal(phone, message)
-    if (textlocalResult.success) return textlocalResult
-    
-    return await sendSMS_Twilio(phone, message)
+  // Try Kaleyra first (Indian provider with trial credits)
+  if (process.env.KALEYRA_API_KEY && process.env.KALEYRA_SID) {
+    console.log('🔄 Trying Kaleyra SMS...')
+    const kaleyraResult = await sendSMS_Kaleyra(phone, message)
+    if (kaleyraResult.success) {
+      return kaleyraResult
+    }
+    console.log('⚠️ Kaleyra failed:', kaleyraResult.reason)
   }
   
-  try {
-    console.log('🔑 MSG91 API key found, sending SMS...')
-    
-    // Truncate message to 160 characters (SMS limit)
-    const smsMessage = message.length > 160 ? message.substring(0, 157) + '...' : message
-    
-    console.log('📤 Sending SMS to:', phone)
-    console.log('📝 Message:', smsMessage)
-    
-    // MSG91 Simple SMS API (works without DLT for testing)
-    const url = 'https://api.msg91.com/api/sendhttp.php'
-    
-    // Build query parameters
-    const params = new URLSearchParams({
-      authkey: process.env.MSG91_AUTH_KEY,
-      mobiles: phone, // Just 10 digits, no country code
-      message: smsMessage,
-      sender: process.env.MSG91_SENDER_ID || 'MSGIND', // Default sender ID
-      route: '4', // Route 4 = Transactional (works without DLT)
-      country: '91' // India
-    })
-    
-    console.log('🌐 Request URL:', `${url}?${params.toString()}`)
-    
-    // Send SMS using MSG91 Simple API
-    const response = await axios.get(`${url}?${params.toString()}`)
-    
-    console.log('📩 MSG91 response status:', response.status)
-    console.log('📩 MSG91 response data:', JSON.stringify(response.data, null, 2))
-    
-    // MSG91 returns 200 with "type":"success" or error message
-    if (response.status === 200 && (response.data.type === 'success' || response.data.message?.includes('sent successfully'))) {
-      console.log('✅ SMS sent successfully via MSG91!')
-      return { success: true, provider: 'msg91', id: response.data.request_id || response.data.message }
-    } else {
-      console.error('❌ MSG91 failed:', response.data)
-      console.log('🔄 Trying 2Factor as fallback...')
-      const twofactorResult = await sendSMS_2Factor(phone, message)
-      if (twofactorResult.success) return twofactorResult
-      
-      console.log('🔄 Trying TextLocal as fallback...')
-      const textlocalResult = await sendSMS_TextLocal(phone, message)
-      if (textlocalResult.success) return textlocalResult
-      
-      console.log('🔄 Trying Twilio SMS as final fallback...')
-      return await sendSMS_Twilio(phone, message)
-    }
-  } catch (error) {
-    console.error('❌ SMS send failed:', error.message)
-    if (error.response) {
-      console.error('Error status:', error.response.status)
-      console.error('Error data:', error.response.data)
-    }
-    console.log('🔄 Trying 2Factor as fallback...')
-    const twofactorResult = await sendSMS_2Factor(phone, message)
-    if (twofactorResult.success) return twofactorResult
-    
-    console.log('🔄 Trying TextLocal as fallback...')
-    const textlocalResult = await sendSMS_TextLocal(phone, message)
-    if (textlocalResult.success) return textlocalResult
-    
-    console.log('🔄 Trying Twilio SMS as final fallback...')
-    return await sendSMS_Twilio(phone, message)
-  }
+  // Fallback to Twilio SMS
+  console.log('🔄 Trying Twilio SMS as fallback...')
+  return await sendSMS_Twilio(phone, message)
 }
 
 // Send notification (tries WhatsApp first, falls back to SMS)
 async function sendNotification(phone, message) {
   console.log('📲 Sending notification to:', phone)
-  console.log('📋 Notification chain: WhatsApp → MSG91 → 2Factor → TextLocal → Twilio SMS → Screen')
+  console.log('📋 Notification chain: WhatsApp → Kaleyra SMS → Twilio SMS → Screen')
   
   // Try WhatsApp first (if configured)
   if (twilioClient && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_WHATSAPP_NUMBER) {
@@ -341,7 +242,7 @@ async function sendNotification(phone, message) {
     console.log('🔄 Falling back to SMS...')
   }
   
-  // Try SMS (MSG91 → 2Factor → TextLocal → Twilio chain)
+  // Try SMS (Kaleyra → Twilio chain)
   const smsResult = await sendSMS(phone, message)
   
   if (smsResult.success) {
