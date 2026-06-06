@@ -111,7 +111,7 @@ async function sendWhatsAppMessage(phone, message) {
   }
 }
 
-// Send SMS via MSG91 (FREE - 25 SMS/day for India) - Using REST API
+// Send SMS via MSG91 (FREE - 25 SMS/day for India) - Using Simple SMS API
 async function sendSMS(phone, message) {
   console.log('📱 Attempting to send SMS via MSG91 to:', phone)
   console.log('📝 SMS preview:', message.substring(0, 100))
@@ -131,39 +131,42 @@ async function sendSMS(phone, message) {
     console.log('📤 Sending SMS to:', phone)
     console.log('📝 Message:', smsMessage)
     
-    // MSG91 API endpoint
-    const url = 'https://control.msg91.com/api/v5/flow/'
+    // MSG91 Simple SMS API (works without DLT for testing)
+    const url = 'https://api.msg91.com/api/sendhttp.php'
     
-    // Send SMS using MSG91 REST API
-    const response = await axios.post(url, {
-      template_id: process.env.MSG91_TEMPLATE_ID || null, // Optional template
-      short_url: '0',
-      recipients: [{
-        mobiles: '91' + phone,
-        message: smsMessage
-      }]
-    }, {
-      headers: {
-        'authkey': process.env.MSG91_AUTH_KEY,
-        'content-type': 'application/json'
-      }
+    // Build query parameters
+    const params = new URLSearchParams({
+      authkey: process.env.MSG91_AUTH_KEY,
+      mobiles: phone, // Just 10 digits, no country code
+      message: smsMessage,
+      sender: process.env.MSG91_SENDER_ID || 'MSGIND', // Default sender ID
+      route: '4', // Route 4 = Transactional (works without DLT)
+      country: '91' // India
     })
     
-    console.log('📩 MSG91 response:', JSON.stringify(response.data, null, 2))
+    console.log('🌐 Request URL:', `${url}?${params.toString()}`)
     
-    if (response.data.type === 'success' || response.status === 200) {
+    // Send SMS using MSG91 Simple API
+    const response = await axios.get(`${url}?${params.toString()}`)
+    
+    console.log('📩 MSG91 response status:', response.status)
+    console.log('📩 MSG91 response data:', JSON.stringify(response.data, null, 2))
+    
+    // MSG91 returns 200 with "type":"success" or error message
+    if (response.status === 200 && (response.data.type === 'success' || response.data.message?.includes('sent successfully'))) {
       console.log('✅ SMS sent successfully via MSG91!')
-      return { success: true, provider: 'msg91', id: response.data.request_id }
+      return { success: true, provider: 'msg91', id: response.data.request_id || response.data.message }
     } else {
-      console.error('❌ MSG91 failed:', response.data.message || response.data)
-      return { success: false, reason: response.data.message || 'API error' }
+      console.error('❌ MSG91 failed:', response.data)
+      return { success: false, reason: response.data.message || 'API error', details: response.data }
     }
   } catch (error) {
     console.error('❌ SMS send failed:', error.message)
     if (error.response) {
-      console.error('Error response:', error.response.status, error.response.data)
+      console.error('Error status:', error.response.status)
+      console.error('Error data:', error.response.data)
     }
-    return { success: false, reason: error.message }
+    return { success: false, reason: error.message, details: error.response?.data }
   }
 }
 

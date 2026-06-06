@@ -1,8 +1,8 @@
-# MSG91 SMS Setup Guide (FREE - 25 SMS/day)
+# ✅ MSG91 SMS Setup Guide (FREE - 25 SMS/day)
 
 ## ✅ MSG91 Integration Complete!
 
-Your application now supports **FREE SMS notifications** via MSG91 (25 SMS/day for India).
+Your application now supports **FREE SMS notifications** via MSG91 REST API (25 SMS/day for India).
 
 ---
 
@@ -29,14 +29,13 @@ Your application now supports **FREE SMS notifications** via MSG91 (25 SMS/day f
    - **Key**: `MSG91_AUTH_KEY`
    - **Value**: `YOUR_ACTUAL_AUTHKEY_HERE` (paste the authkey from step 2)
 5. Click **"Save Changes"**
-6. Wait for Render to redeploy (takes ~1-2 minutes)
+6. Render will auto-redeploy (takes ~1-2 minutes)
 
 ### Step 4: Test SMS
 After Render redeploys:
-1. Open your app: https://ev-app-frb6.onrender.com
-2. Fill out the registration form
-3. Submit the form
-4. Check your phone - you should receive SMS with referral code! 📱
+1. Open your app registration form
+2. Fill out and submit the form
+3. Check your phone - you should receive SMS with referral code! 📱
 
 ---
 
@@ -44,7 +43,7 @@ After Render redeploys:
 
 **Notification Priority:**
 1. **First**: Tries WhatsApp (if Twilio configured, but limited to 50/day)
-2. **Fallback**: Tries SMS via MSG91 (25/day FREE)
+2. **Fallback**: Tries SMS via MSG91 REST API (25/day FREE)
 3. **Final**: Shows referral code on screen if both fail
 
 **SMS Message Format:**
@@ -60,18 +59,14 @@ Share it with other riders to earn points and rewards. Road Warrior — let's go
 
 ---
 
-## 🔧 Configuration Options
+## 🔧 Configuration (Simple - Only 1 Required)
 
-### Basic Setup (Required)
+### Required Configuration
 ```env
 MSG91_AUTH_KEY=348752ATxxxxxxxxxxxxxx
 ```
 
-### Advanced Setup (Optional)
-```env
-MSG91_SENDER_ID=RDWRRR    # 6-character sender ID (default: RDWRRR)
-MSG91_FLOW_ID=xxxx        # DLT template ID (if you have approved template)
-```
+That's it! Just add the authkey to Render and it works!
 
 ---
 
@@ -114,7 +109,7 @@ Check Render logs to verify SMS is working:
 ### When User Registers:
 1. Form submission → Backend receives data
 2. Backend tries WhatsApp (fails due to 50 msg/day limit)
-3. Backend tries MSG91 SMS ✅
+3. Backend tries MSG91 SMS via REST API ✅
 4. User receives SMS with referral code
 5. Success screen shows confirmation
 
@@ -129,16 +124,17 @@ Check Render logs to verify SMS is working:
 ## 🚨 Troubleshooting
 
 ### Issue: "MSG91 API key not configured"
-**Solution**: Add `MSG91_AUTH_KEY` to Render environment variables and redeploy.
+**Solution**: Add `MSG91_AUTH_KEY` to Render environment variables and wait for redeploy.
 
 ### Issue: "SMS send failed"
 **Check:**
 - Is your authkey correct?
 - Have you used 25 SMS today already?
 - Is the phone number valid (10 digits)?
+- Check Render logs for detailed error
 
-### Issue: "DLT registration required"
-**Solution**: Use route 4 (transactional) which works without DLT for testing. For production at scale, register DLT template.
+### Issue: "Cannot find package 'msg91-sdk'"
+**Solution**: Fixed! We now use REST API directly (no SDK needed).
 
 ---
 
@@ -147,20 +143,25 @@ Check Render logs to verify SMS is working:
 **MSG91 Support:**
 - Email: support@msg91.com
 - Docs: https://docs.msg91.com/
+- API Docs: https://docs.msg91.com/reference/send-sms
 
 **Your Integration:**
-- Code location: `server/index.js` (lines ~115-170)
+- Code location: `server/index.js` (sendSMS function uses REST API)
 - Test endpoint: `POST /api/riders`
+- Method: Direct HTTP POST to MSG91 API
 
 ---
 
 ## 🎉 You're All Set!
 
-Once you add the `MSG91_AUTH_KEY` to Render, your app will automatically send SMS notifications to riders after registration. No code changes needed!
+Once you add the `MSG91_AUTH_KEY` to Render, your app will automatically send SMS notifications via REST API. No additional packages or dependencies needed!
 
 **Next Steps:**
 1. Sign up at https://msg91.com/signup
-2. Copy your authkey
-3. Add to Render environment
-4. Test registration form
-5. Receive SMS! 📱
+2. Copy your authkey from dashboard
+3. Add `MSG91_AUTH_KEY` to Render environment
+4. Wait for auto-redeploy (~2 min)
+5. Test registration form
+6. Receive SMS! 📱
+
+**Current Status:** ✅ Code deployed, waiting for your MSG91 authkey!
