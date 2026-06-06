@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
 import QRCode from 'qrcode'
+import axios from 'axios'
 
 dotenv.config()
 
@@ -108,6 +109,70 @@ async function sendWhatsAppMessage(phone, message) {
     // This way registration still succeeds even if WhatsApp fails
     return { success: false, reason: error.code || error.message }
   }
+}
+
+// Send SMS via Fast2SMS (FREE - 100+ SMS/day for India)
+async function sendSMS(phone, message) {
+  console.log('📱 Attempting to send SMS to:', phone)
+  console.log('📝 SMS preview:', message.substring(0, 100))
+  
+  if (!process.env.FAST2SMS_API_KEY) {
+    console.log('⚠️ Fast2SMS API key not configured - skipping SMS')
+    return { success: false, reason: 'no_api_key' }
+  }
+  
+  try {
+    // Fast2SMS API - Free tier: 100+ SMS/day
+    const response = await axios.post('https://www.fast2sms.com/dev/bulkV2', {
+      route: 'q',
+      message: message,
+      language: 'english',
+      flash: 0,
+      numbers: phone
+    }, {
+      headers: {
+        'authorization': process.env.FAST2SMS_API_KEY,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    if (response.data.return === true) {
+      console.log('✅ SMS sent successfully via Fast2SMS!')
+      return { success: true, provider: 'fast2sms', id: response.data.request_id }
+    } else {
+      console.error('❌ Fast2SMS failed:', response.data.message)
+      return { success: false, reason: response.data.message }
+    }
+  } catch (error) {
+    console.error('❌ SMS send failed:', error.message)
+    return { success: false, reason: error.message }
+  }
+}
+
+// Send notification (tries WhatsApp first, falls back to SMS)
+async function sendNotification(phone, message) {
+  console.log('📲 Sending notification to:', phone)
+  
+  // Try WhatsApp first
+  const whatsappResult = await sendWhatsAppMessage(phone, message)
+  
+  if (whatsappResult.success) {
+    console.log('✅ WhatsApp sent successfully')
+    return { success: true, method: 'whatsapp', ...whatsappResult }
+  }
+  
+  console.log('⚠️ WhatsApp failed, trying SMS fallback...')
+  
+  // Fallback to SMS
+  const smsResult = await sendSMS(phone, message)
+  
+  if (smsResult.success) {
+    console.log('✅ SMS sent successfully')
+    return { success: true, method: 'sms', ...smsResult }
+  }
+  
+  console.log('❌ All notification methods failed')
+  return { success: false, method: 'none', reason: 'all_failed' }
 }
 
 // Check for duplicate phone number
@@ -220,17 +285,17 @@ app.post('/api/riders', async (req, res) => {
         
         // Send milestone message if applicable
         if (newReferralCount === 10) {
-          await sendWhatsAppMessage(
+          await sendNotification(
             referrer.whatsapp,
             `🎉 Milestone achieved! You've referred 10 riders. +100 bonus points! Keep going!`
           )
         } else if (newReferralCount === 25) {
-          await sendWhatsAppMessage(
+          await sendNotification(
             referrer.whatsapp,
             `🏆 Amazing! You've referred 25 riders. +300 bonus points! You're a Road Warrior!`
           )
         } else if (newReferralCount === 50) {
-          await sendWhatsAppMessage(
+          await sendNotification(
             referrer.whatsapp,
             `🎁 Legendary! 50 referrals! +500 bonus points + Lucky Draw entry! 🎉`
           )
@@ -277,14 +342,14 @@ app.post('/api/riders', async (req, res) => {
     
     if (error) throw error
     
-    // Send welcome WhatsApp message (don't fail if this doesn't work)
+    // Send welcome notification (WhatsApp → SMS fallback)
     const messages = {
       en: `Welcome ${riderData.fullName}! You are now registered. Your referral code is: ${referralCode}. Share it with other riders to earn points and rewards. Road Warrior — let's go!`,
       hi: `नमस्ते ${riderData.fullName} भाई! आपका रजिस्ट्रेशन हो गया। आपका रेफरल कोड है: ${referralCode}. इस कोड को अपने दोस्तों के साथ शेयर करो और पॉइंट्स कमाओ। Road Warrior बनो!`,
       kn: `ಸ್ವಾಗತ ${riderData.fullName}! ನೀವು ಈಗ ನೋಂದಾಯಿಸಿದ್ದೀರಿ. ನಿಮ್ಮ ರೆಫರಲ್ ಕೋಡ್: ${referralCode}. ಪಾಯಿಂಟ್‌ಗಳನ್ನು ಗಳಿಸಲು ಇತರ ರೈಡರ್‌ಗಳೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಿ. Road Warrior!`
     }
     
-    const whatsappResult = await sendWhatsAppMessage(
+    const notificationResult = await sendNotification(
       riderData.whatsapp,
       messages[riderData.language] || messages.en
     )
@@ -294,7 +359,8 @@ app.post('/api/riders', async (req, res) => {
       referralCode: referralCode,
       points: 10,
       rider: newRider,
-      whatsappSent: whatsappResult?.success || false
+      notificationSent: notificationResult.success,
+      notificationMethod: notificationResult.method
     })
   } catch (error) {
     console.error('Error submitting rider:', error)
@@ -881,7 +947,7 @@ app.post('/api/whatsapp', async (req, res) => {
       const session = getWhatsAppSession(from)
       const welcomeMsg = "🌟 *Road Warrior Registration*\n\nSelect your language:\n\n1 - English\n2 - हिंदी (Hindi)"
       console.log('📤 Sending welcome message')
-      await sendWhatsAppMessage(from, welcomeMsg)
+      await sendNotification(from, welcomeMsg)
       return res.status(200).send('OK')
     }
 
@@ -893,7 +959,7 @@ app.post('/api/whatsapp', async (req, res) => {
     if (session.step === 'language') {
       const welcomeMsg = "🌟 *Road Warrior Registration*\n\nSelect your language:\n\n1 - English\n2 - हिंदी (Hindi)"
       console.log('👋 First time user, sending language selection')
-      await sendWhatsAppMessage(from, welcomeMsg)
+      await sendNotification(from, welcomeMsg)
       // Don't process the message further, wait for language selection
       return res.status(200).send('OK')
     }
@@ -913,7 +979,7 @@ app.post('/api/whatsapp', async (req, res) => {
         
         // Send completion message
         const completeMsg = WHATSAPP_QUESTIONS[lang].complete.replace('{code}', referralCode)
-        await sendWhatsAppMessage(from, completeMsg)
+        await sendNotification(from, completeMsg)
         
         // Generate and send QR code
         const qrUrl = `${process.env.APP_URL}/?ref=${referralCode}`
@@ -944,11 +1010,11 @@ app.post('/api/whatsapp', async (req, res) => {
         whatsappSessions.delete(from)
       } catch (saveError) {
         console.error('❌ Save error:', saveError)
-        await sendWhatsAppMessage(from, "❌ Sorry, something went wrong. Please try again or type 'restart'")
+        await sendNotification(from, "❌ Sorry, something went wrong. Please try again or type 'restart'")
       }
     } else {
       console.log('📤 Sending next question')
-      await sendWhatsAppMessage(from, response)
+      await sendNotification(from, response)
     }
 
     res.status(200).send('OK')

@@ -121,7 +121,8 @@ function QuestionnaireForm() {
         state: { 
           referralCode: result.referralCode, 
           points: result.points,
-          whatsappSent: result.whatsappSent 
+          notificationSent: result.notificationSent,
+          notificationMethod: result.notificationMethod
         } 
       })
     } catch (error) {
