@@ -24,10 +24,17 @@ const mockDatabase = []
 // WhatsApp conversation sessions (stores user progress)
 const whatsappSessions = new Map()
 
-// Twilio client (optional, disabled by default)
-const twilioClient = null // Disabled - will add back with new account
+// Twilio client (will be enabled when you add credentials)
+const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
+  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+  : null
 
-console.log('🔧 SMS/WhatsApp: Disabled - using on-screen notifications only')
+console.log('🔧 Twilio setup:', {
+  hasSID: !!process.env.TWILIO_ACCOUNT_SID,
+  hasToken: !!process.env.TWILIO_AUTH_TOKEN,
+  hasWhatsApp: !!process.env.TWILIO_WHATSAPP_NUMBER,
+  clientInitialized: !!twilioClient
+})
 
 // Generate unique referral code
 function generateReferralCode() {
@@ -70,8 +77,77 @@ function segmentRider(data) {
   return segments.join(', ') || 'General'
 }
 
-// Send notification (disabled - just show on screen)
+// Send WhatsApp message
+async function sendWhatsAppMessage(phone, message) {
+  console.log('📤 Attempting to send WhatsApp message to:', phone)
+  
+  if (!twilioClient) {
+    console.log('⚠️ Twilio not configured - skipping WhatsApp')
+    return { success: false, reason: 'no_twilio_client' }
+  }
+  
+  try {
+    const result = await twilioClient.messages.create({
+      body: message,
+      from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
+      to: `whatsapp:+91${phone}`
+    })
+    
+    console.log('✅ WhatsApp sent! SID:', result.sid)
+    return { success: true, sid: result.sid }
+  } catch (error) {
+    console.error('❌ WhatsApp failed:', error.message)
+    return { success: false, reason: error.code || error.message }
+  }
+}
+
+// Send WhatsApp media (for QR code images)
+async function sendWhatsAppMedia(phone, mediaUrl, caption) {
+  console.log('📤 Sending WhatsApp media to:', phone)
+  
+  if (!twilioClient) {
+    console.log('⚠️ Twilio not configured')
+    return { success: false, reason: 'no_twilio_client' }
+  }
+  
+  try {
+    const result = await twilioClient.messages.create({
+      body: caption || '',
+      from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
+      to: `whatsapp:+91${phone}`,
+      mediaUrl: [mediaUrl]
+    })
+    
+    console.log('✅ WhatsApp media sent! SID:', result.sid)
+    return { success: true, sid: result.sid }
+  } catch (error) {
+    console.error('❌ WhatsApp media failed:', error.message)
+    return { success: false, reason: error.message }
+  }
+}
+
+// Send notification (WhatsApp with fallback to on-screen)
 async function sendNotification(phone, message) {
+  console.log('📲 Sending notification to:', phone)
+  
+  if (twilioClient && process.env.TWILIO_WHATSAPP_NUMBER) {
+    const whatsappResult = await sendWhatsAppMessage(phone, message)
+    
+    if (whatsappResult.success) {
+      console.log('✅ WhatsApp notification sent')
+      return { success: true, method: 'whatsapp', ...whatsappResult }
+    }
+    
+    console.log('⚠️ WhatsApp failed, showing on screen')
+  }
+  
+  // Fallback to on-screen notification
+  console.log('ℹ️ Using on-screen notification')
+  return { success: false, method: 'screen', reason: 'whatsapp_unavailable' }
+}
+
+// Send notification (disabled - just show on screen)
+async function sendNotification_OLD(phone, message) {
   console.log('📲 Notification disabled - showing on screen only')
   console.log('📱 Would send to:', phone)
   console.log('📝 Message:', message.substring(0, 100))
