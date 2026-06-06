@@ -122,19 +122,28 @@ async function sendSMS(phone, message) {
   }
   
   try {
+    console.log('🔑 Fast2SMS API key found, sending SMS...')
+    
     // Fast2SMS API - Free tier: 100+ SMS/day
-    const response = await axios.post('https://www.fast2sms.com/dev/bulkV2', {
+    const payload = {
       route: 'q',
       message: message,
       language: 'english',
       flash: 0,
       numbers: phone
-    }, {
+    }
+    
+    console.log('📤 Sending to Fast2SMS:', JSON.stringify(payload, null, 2))
+    
+    const response = await axios.post('https://www.fast2sms.com/dev/bulkV2', payload, {
       headers: {
         'authorization': process.env.FAST2SMS_API_KEY,
         'Content-Type': 'application/json'
-      }
+      },
+      timeout: 10000 // 10 second timeout
     })
+    
+    console.log('📩 Fast2SMS response:', JSON.stringify(response.data, null, 2))
     
     if (response.data.return === true) {
       console.log('✅ SMS sent successfully via Fast2SMS!')
@@ -145,6 +154,7 @@ async function sendSMS(phone, message) {
     }
   } catch (error) {
     console.error('❌ SMS send failed:', error.message)
+    console.error('Error details:', error.response?.data || error)
     return { success: false, reason: error.message }
   }
 }
