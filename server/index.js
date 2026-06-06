@@ -749,8 +749,18 @@ function processWhatsAppResponse(session, message) {
 
   // Experience
   if (step === 'experience') {
-    const expMap = { '1': 'Less than 1 year', '2': '1-3 years', '3': '3-5 years', '4': 'More than 5 years' }
+    const expMap = { 
+      '1': 'Less than 1 year', 
+      '2': '1-3 years', 
+      '3': '3-5 years', 
+      '4': 'More than 5 years' 
+    }
     session.data.experience = expMap[text] || text
+    
+    // Store numeric value for database
+    const expNumericMap = { '1': 0.5, '2': 2, '3': 4, '4': 6 }
+    session.data.experienceNumeric = expNumericMap[text] || 2
+    
     session.step = 'vehicleType'
     return questions.vehicleType
   }
@@ -934,12 +944,12 @@ async function saveWhatsAppRider(sessionData) {
     whatsapp: sessionData.whatsapp,
     city: sessionData.city,
     platform: sessionData.platform,
-    experience: sessionData.experience,
+    experience: sessionData.experienceNumeric || 2, // Use numeric value
     vehicle_type: sessionData.vehicleType,
     vehicle_brand: sessionData.vehicleBrand,
     fuel_method: sessionData.fuelMethod,
-    weekly_expense: sessionData.weeklyExpense,
-    monthly_maintenance: sessionData.monthlyMaintenance,
+    weekly_expense: parseInt(sessionData.weeklyExpense) || 0,
+    monthly_maintenance: parseInt(sessionData.monthlyMaintenance) || 0,
     challenges: Array.isArray(sessionData.challenges) ? sessionData.challenges : [],
     ev_challenges: Array.isArray(sessionData.evChallenges) ? sessionData.evChallenges : [],
     petrol_challenges: Array.isArray(sessionData.petrolChallenges) ? sessionData.petrolChallenges : [],
