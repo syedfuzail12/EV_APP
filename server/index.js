@@ -799,7 +799,7 @@ function processWhatsAppResponse(session, message) {
       '4': 'Battery range anxiety', '5': 'Repair costs', '6': 'Long refuelling time', '7': 'Other'
     }
     const selectedChallenges = text.split(',').map(n => challengeMap[n.trim()]).filter(Boolean)
-    session.data.challenges = selectedChallenges.join(', ')
+    session.data.challenges = selectedChallenges // Store as array
     
     // Based on vehicle type, ask specific challenges or move forward
     if (session.data.vehicleType === 'Electric Two-Wheeler') {
@@ -822,9 +822,9 @@ function processWhatsAppResponse(session, message) {
         '4': 'Vehicle not powerful enough', '5': 'Service centre not nearby', '6': 'Other'
       }
       const selectedChallenges = text.split(',').map(n => evChallengeMap[n.trim()]).filter(Boolean)
-      session.data.evChallenges = selectedChallenges.join(', ')
+      session.data.evChallenges = selectedChallenges // Store as array
     } else {
-      session.data.evChallenges = ''
+      session.data.evChallenges = [] // Empty array for skip
     }
     session.step = 'accidentInsurance'
     return questions.accidentInsurance
@@ -838,9 +838,9 @@ function processWhatsAppResponse(session, message) {
         '4': 'High servicing cost', '5': 'Other'
       }
       const selectedChallenges = text.split(',').map(n => petrolChallengeMap[n.trim()]).filter(Boolean)
-      session.data.petrolChallenges = selectedChallenges.join(', ')
+      session.data.petrolChallenges = selectedChallenges // Store as array
     } else {
-      session.data.petrolChallenges = ''
+      session.data.petrolChallenges = [] // Empty array for skip
     }
     session.step = 'accidentInsurance'
     return questions.accidentInsurance
@@ -884,7 +884,7 @@ function processWhatsAppResponse(session, message) {
       '4': 'Income guarantee', '5': 'Employer subsidy', '6': 'Other'
     }
     const selectedReasons = text.split(',').map(n => reasonMap[n.trim()]).filter(Boolean)
-    session.data.switchReasons = selectedReasons.join(', ') || text
+    session.data.switchReasons = selectedReasons.length > 0 ? selectedReasons : [text] // Store as array
     session.step = 'interested'
     return questions.interested
   }
@@ -896,7 +896,7 @@ function processWhatsAppResponse(session, message) {
       '4': 'All of the above', '5': 'None'
     }
     const selectedInterests = text.split(',').map(n => interestMap[n.trim()]).filter(Boolean)
-    session.data.interested = selectedInterests.join(', ')
+    session.data.interested = selectedInterests.length > 0 ? selectedInterests : ['None'] // Store as array
     session.step = 'referralCode'
     return questions.referralCode
   }
@@ -940,15 +940,15 @@ async function saveWhatsAppRider(sessionData) {
     fuel_method: sessionData.fuelMethod,
     weekly_expense: sessionData.weeklyExpense,
     monthly_maintenance: sessionData.monthlyMaintenance,
-    challenges: sessionData.challenges || '',
-    ev_challenges: sessionData.evChallenges || '',
-    petrol_challenges: sessionData.petrolChallenges || '',
+    challenges: Array.isArray(sessionData.challenges) ? sessionData.challenges : [],
+    ev_challenges: Array.isArray(sessionData.evChallenges) ? sessionData.evChallenges : [],
+    petrol_challenges: Array.isArray(sessionData.petrolChallenges) ? sessionData.petrolChallenges : [],
     accident_insurance: sessionData.accidentInsurance,
     health_insurance: sessionData.healthInsurance,
     paid_for_accident: sessionData.paidForAccident,
     switch_to_ev: sessionData.switchToEV,
-    switch_reasons: sessionData.switchReasons || '',
-    interested: sessionData.interested || '',
+    switch_reasons: Array.isArray(sessionData.switchReasons) ? sessionData.switchReasons : [],
+    interested: Array.isArray(sessionData.interested) ? sessionData.interested : [],
     referred_by_code: sessionData.referredByCode || null,
     referral_code: referralCode,
     points: 10,
