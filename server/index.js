@@ -111,6 +111,51 @@ async function sendWhatsAppMessage(phone, message) {
   }
 }
 
+// Send SMS via 2Factor.in (FREE - 10 SMS/day for India, no KYC)
+async function sendSMS_2Factor(phone, message) {
+  console.log('📱 Attempting to send SMS via 2Factor.in to:', phone)
+  
+  if (!process.env.TWOFACTOR_API_KEY) {
+    console.log('⚠️ 2Factor API key not configured')
+    return { success: false, reason: 'no_2factor_key' }
+  }
+  
+  try {
+    const smsMessage = message.length > 160 ? message.substring(0, 157) + '...' : message
+    
+    console.log('📤 Sending SMS via 2Factor.in')
+    
+    // 2Factor SMS API
+    const url = `https://2factor.in/API/V1/${process.env.TWOFACTOR_API_KEY}/ADDON_SERVICES/SEND/TSMS`
+    
+    const response = await axios.post(url, {
+      From: process.env.TWOFACTOR_SENDER || 'TFACTR',
+      To: phone,
+      Msg: smsMessage
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    console.log('📩 2Factor response:', JSON.stringify(response.data, null, 2))
+    
+    if (response.data.Status === 'Success' || response.data.Details) {
+      console.log('✅ SMS sent via 2Factor.in!')
+      return { success: true, provider: '2factor', id: response.data.Details }
+    } else {
+      console.error('❌ 2Factor failed:', response.data)
+      return { success: false, reason: response.data.Details || 'API error' }
+    }
+  } catch (error) {
+    console.error('❌ 2Factor failed:', error.message)
+    if (error.response) {
+      console.error('Error response:', error.response.data)
+    }
+    return { success: false, reason: error.message }
+  }
+}
+
 // Send SMS via TextLocal (FREE - 25 SMS/day for India, no KYC)
 async function sendSMS_TextLocal(phone, message) {
   console.log('📱 Attempting to send SMS via TextLocal to:', phone)
@@ -186,9 +231,13 @@ async function sendSMS(phone, message) {
   
   if (!process.env.MSG91_AUTH_KEY) {
     console.log('⚠️ MSG91 API key not configured - trying alternatives')
-    // Try TextLocal first, then Twilio
+    // Try 2Factor first, then TextLocal, then Twilio
+    const twofactorResult = await sendSMS_2Factor(phone, message)
+    if (twofactorResult.success) return twofactorResult
+    
     const textlocalResult = await sendSMS_TextLocal(phone, message)
     if (textlocalResult.success) return textlocalResult
+    
     return await sendSMS_Twilio(phone, message)
   }
   
@@ -228,9 +277,14 @@ async function sendSMS(phone, message) {
       return { success: true, provider: 'msg91', id: response.data.request_id || response.data.message }
     } else {
       console.error('❌ MSG91 failed:', response.data)
+      console.log('🔄 Trying 2Factor as fallback...')
+      const twofactorResult = await sendSMS_2Factor(phone, message)
+      if (twofactorResult.success) return twofactorResult
+      
       console.log('🔄 Trying TextLocal as fallback...')
       const textlocalResult = await sendSMS_TextLocal(phone, message)
       if (textlocalResult.success) return textlocalResult
+      
       console.log('🔄 Trying Twilio SMS as final fallback...')
       return await sendSMS_Twilio(phone, message)
     }
@@ -240,9 +294,14 @@ async function sendSMS(phone, message) {
       console.error('Error status:', error.response.status)
       console.error('Error data:', error.response.data)
     }
+    console.log('🔄 Trying 2Factor as fallback...')
+    const twofactorResult = await sendSMS_2Factor(phone, message)
+    if (twofactorResult.success) return twofactorResult
+    
     console.log('🔄 Trying TextLocal as fallback...')
     const textlocalResult = await sendSMS_TextLocal(phone, message)
     if (textlocalResult.success) return textlocalResult
+    
     console.log('🔄 Trying Twilio SMS as final fallback...')
     return await sendSMS_Twilio(phone, message)
   }
@@ -251,7 +310,7 @@ async function sendSMS(phone, message) {
 // Send notification (tries WhatsApp first, falls back to SMS)
 async function sendNotification(phone, message) {
   console.log('📲 Sending notification to:', phone)
-  console.log('📋 Notification chain: WhatsApp → MSG91 → TextLocal → Twilio SMS → Screen')
+  console.log('📋 Notification chain: WhatsApp → MSG91 → 2Factor → TextLocal → Twilio SMS → Screen')
   
   // Try WhatsApp first (if configured)
   if (twilioClient && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_WHATSAPP_NUMBER) {
@@ -266,7 +325,7 @@ async function sendNotification(phone, message) {
     console.log('🔄 Falling back to SMS...')
   }
   
-  // Try SMS (MSG91 → TextLocal → Twilio chain)
+  // Try SMS (MSG91 → 2Factor → TextLocal → Twilio chain)
   const smsResult = await sendSMS(phone, message)
   
   if (smsResult.success) {
