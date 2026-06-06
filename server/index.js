@@ -111,15 +111,44 @@ async function sendWhatsAppMessage(phone, message) {
   }
 }
 
+// Send SMS via Twilio (backup method when WhatsApp fails)
+async function sendSMS_Twilio(phone, message) {
+  console.log('📱 Attempting to send SMS via Twilio to:', phone)
+  
+  if (!twilioClient) {
+    console.log('⚠️ Twilio client not initialized')
+    return { success: false, reason: 'no_twilio_client' }
+  }
+  
+  try {
+    // Truncate message to 160 characters (SMS limit)
+    const smsMessage = message.length > 160 ? message.substring(0, 157) + '...' : message
+    
+    console.log('📤 Sending SMS to:', `+91${phone}`)
+    
+    // Send SMS using Twilio (not WhatsApp)
+    const result = await twilioClient.messages.create({
+      body: smsMessage,
+      from: process.env.TWILIO_PHONE_NUMBER || process.env.TWILIO_WHATSAPP_NUMBER?.replace('whatsapp:', ''), // Use regular Twilio number
+      to: `+91${phone}` // Regular SMS, not WhatsApp
+    })
+    
+    console.log('✅ Twilio SMS sent! SID:', result.sid)
+    return { success: true, provider: 'twilio_sms', sid: result.sid }
+  } catch (error) {
+    console.error('❌ Twilio SMS failed:', error.message)
+    return { success: false, reason: error.code || error.message }
+  }
+}
+
 // Send SMS via MSG91 (FREE - 25 SMS/day for India) - Using Simple SMS API
 async function sendSMS(phone, message) {
   console.log('📱 Attempting to send SMS via MSG91 to:', phone)
   console.log('📝 SMS preview:', message.substring(0, 100))
   
   if (!process.env.MSG91_AUTH_KEY) {
-    console.log('⚠️ MSG91 API key not configured - skipping SMS')
-    console.log('ℹ️ Get your free API key from: https://msg91.com/signup')
-    return { success: false, reason: 'no_api_key' }
+    console.log('⚠️ MSG91 API key not configured - trying Twilio SMS instead')
+    return await sendSMS_Twilio(phone, message)
   }
   
   try {
@@ -158,7 +187,8 @@ async function sendSMS(phone, message) {
       return { success: true, provider: 'msg91', id: response.data.request_id || response.data.message }
     } else {
       console.error('❌ MSG91 failed:', response.data)
-      return { success: false, reason: response.data.message || 'API error', details: response.data }
+      console.log('🔄 Trying Twilio SMS as fallback...')
+      return await sendSMS_Twilio(phone, message)
     }
   } catch (error) {
     console.error('❌ SMS send failed:', error.message)
@@ -166,16 +196,18 @@ async function sendSMS(phone, message) {
       console.error('Error status:', error.response.status)
       console.error('Error data:', error.response.data)
     }
-    return { success: false, reason: error.message, details: error.response?.data }
+    console.log('🔄 Trying Twilio SMS as fallback...')
+    return await sendSMS_Twilio(phone, message)
   }
 }
 
 // Send notification (tries WhatsApp first, falls back to SMS)
 async function sendNotification(phone, message) {
   console.log('📲 Sending notification to:', phone)
+  console.log('📋 Notification chain: WhatsApp → MSG91 SMS → Twilio SMS → Screen')
   
   // Try WhatsApp first (if configured)
-  if (twilioClient && process.env.TWILIO_ACCOUNT_SID) {
+  if (twilioClient && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_WHATSAPP_NUMBER) {
     const whatsappResult = await sendWhatsAppMessage(phone, message)
     
     if (whatsappResult.success) {
@@ -184,22 +216,20 @@ async function sendNotification(phone, message) {
     }
     
     console.log('⚠️ WhatsApp failed:', whatsappResult.reason)
-    console.log('🔄 Falling back to SMS via MSG91...')
+    console.log('🔄 Falling back to SMS...')
   }
   
-  // Try MSG91 SMS (FREE - 25 SMS/day)
-  if (process.env.MSG91_AUTH_KEY) {
-    const smsResult = await sendSMS(phone, message)
-    
-    if (smsResult.success) {
-      console.log('✅ SMS sent successfully via MSG91')
-      return { success: true, method: 'sms', ...smsResult }
-    }
-    
-    console.log('⚠️ SMS also failed:', smsResult.reason)
+  // Try SMS (MSG91 or Twilio as fallback)
+  const smsResult = await sendSMS(phone, message)
+  
+  if (smsResult.success) {
+    console.log(`✅ SMS sent successfully via ${smsResult.provider}`)
+    return { success: true, method: 'sms', ...smsResult }
   }
   
-  // Both methods failed or not configured
+  console.log('⚠️ SMS also failed:', smsResult.reason)
+  
+  // All methods failed
   console.log('ℹ️ All notification methods failed - referral code shown on screen only')
   
   return { success: false, method: 'none', reason: 'all_methods_failed' }
