@@ -84,7 +84,7 @@ async function sendWhatsAppMessage(phone, message) {
   if (!twilioClient) {
     console.log('⚠️ Twilio client NOT initialized - running in mock mode')
     console.log('📱 WhatsApp (mock):', message.substring(0, 50) + '...')
-    return
+    return { success: false, reason: 'mock_mode' }
   }
   
   try {
@@ -99,9 +99,14 @@ async function sendWhatsAppMessage(phone, message) {
     })
     
     console.log('✅ Message sent successfully! SID:', result.sid)
+    return { success: true, sid: result.sid }
   } catch (error) {
     console.error('❌ WhatsApp send failed:', error.message)
-    console.error('Error details:', error)
+    console.error('Error code:', error.code)
+    
+    // Don't throw - just log and return failure
+    // This way registration still succeeds even if WhatsApp fails
+    return { success: false, reason: error.code || error.message }
   }
 }
 
@@ -272,14 +277,14 @@ app.post('/api/riders', async (req, res) => {
     
     if (error) throw error
     
-    // Send welcome WhatsApp message
+    // Send welcome WhatsApp message (don't fail if this doesn't work)
     const messages = {
       en: `Welcome ${riderData.fullName}! You are now registered. Your referral code is: ${referralCode}. Share it with other riders to earn points and rewards. Road Warrior — let's go!`,
       hi: `नमस्ते ${riderData.fullName} भाई! आपका रजिस्ट्रेशन हो गया। आपका रेफरल कोड है: ${referralCode}. इस कोड को अपने दोस्तों के साथ शेयर करो और पॉइंट्स कमाओ। Road Warrior बनो!`,
       kn: `ಸ್ವಾಗತ ${riderData.fullName}! ನೀವು ಈಗ ನೋಂದಾಯಿಸಿದ್ದೀರಿ. ನಿಮ್ಮ ರೆಫರಲ್ ಕೋಡ್: ${referralCode}. ಪಾಯಿಂಟ್‌ಗಳನ್ನು ಗಳಿಸಲು ಇತರ ರೈಡರ್‌ಗಳೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಿ. Road Warrior!`
     }
     
-    await sendWhatsAppMessage(
+    const whatsappResult = await sendWhatsAppMessage(
       riderData.whatsapp,
       messages[riderData.language] || messages.en
     )
@@ -288,7 +293,8 @@ app.post('/api/riders', async (req, res) => {
       success: true,
       referralCode: referralCode,
       points: 10,
-      rider: newRider
+      rider: newRider,
+      whatsappSent: whatsappResult?.success || false
     })
   } catch (error) {
     console.error('Error submitting rider:', error)
