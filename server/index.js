@@ -10,6 +10,7 @@ import { submissionLimiter, apiLimiter, whatsappLimiter } from './middleware/rat
 import { validatePhone, validatePinCode, detectHoneypot, sanitizeString } from './utils/validation.js'
 import { calculateLeadTags, calculateSegment, calculateFollowUpStatus } from './utils/segmentation.js'
 import { generateCSV } from './utils/csvExport.js'
+import { generateOTP, sendOTP, verifyOTP, canResendOTP, getResendCooldown } from './utils/otp.js'
 
 dotenv.config()
 
@@ -203,6 +204,121 @@ async function checkDuplicate(phone) {
   
   return !!data
 }
+
+// ============================================
+// OTP VERIFICATION ENDPOINTS
+// ============================================
+
+// Send OTP to phone number
+app.post('/api/otp/send', apiLimiter, async (req, res) => {
+  try {
+    const { phone } = req.body
+    
+    console.log(`📱 OTP request for: ${phone}`)
+    
+    // Validate phone number format
+    if (!validatePhone(phone)) {
+      return res.status(400).json({ 
+        error: 'Invalid phone number. Must be 10 digits starting with 6-9' 
+      })
+    }
+    
+    // Check if can resend (rate limiting - 60 seconds cooldown)
+    if (!canResendOTP(phone)) {
+      const cooldown = getResendCooldown(phone)
+      return res.status(429).json({ 
+        error: `Please wait ${cooldown} seconds before requesting new OTP`,
+        cooldown: cooldown
+      })
+    }
+    
+    // Generate OTP
+    const otp = generateOTP()
+    console.log(`🔢 Generated OTP: ${otp} for ${phone}`)
+    
+    // Send OTP via Fast2SMS
+    const result = await sendOTP(phone, otp)
+    
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        message: 'OTP sent successfully to your mobile number',
+        // In development, you can uncomment this to see OTP in response
+        // otp: process.env.NODE_ENV === 'development' ? otp : undefined
+      })
+    } else {
+      console.error('❌ OTP send failed:', result.reason)
+      res.status(500).json({ 
+        error: 'Failed to send OTP. Please try again.',
+        reason: result.reason
+      })
+    }
+  } catch (error) {
+    console.error('❌ OTP send error:', error)
+    res.status(500).json({ error: 'Failed to send OTP' })
+  }
+})
+
+// Verify OTP entered by user
+app.post('/api/otp/verify', apiLimiter, async (req, res) => {
+  try {
+    const { phone, otp } = req.body
+    
+    console.log(`🔍 OTP verification for: ${phone}`)
+    
+    // Validate inputs
+    if (!phone || !otp) {
+      return res.status(400).json({ 
+        error: 'Phone number and OTP are required' 
+      })
+    }
+    
+    if (!validatePhone(phone)) {
+      return res.status(400).json({ 
+        error: 'Invalid phone number' 
+      })
+    }
+    
+    if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ 
+        error: 'OTP must be exactly 6 digits' 
+      })
+    }
+    
+    // Verify OTP
+    const result = verifyOTP(phone, otp)
+    
+    if (result.success) {
+      console.log(`✅ OTP verified for ${phone}`)
+      res.json({ 
+        success: true, 
+        message: 'Phone number verified successfully' 
+      })
+    } else {
+      // Handle different failure reasons
+      const errorMessages = {
+        'otp_not_found': 'No OTP found. Please request a new one.',
+        'otp_expired': 'OTP has expired. Please request a new one.',
+        'max_attempts_exceeded': 'Too many failed attempts. Please request a new OTP.',
+        'invalid_otp': `Invalid OTP. ${result.attemptsLeft} ${result.attemptsLeft === 1 ? 'attempt' : 'attempts'} remaining.`
+      }
+      
+      console.log(`❌ OTP verification failed: ${result.reason}`)
+      
+      res.status(400).json({ 
+        error: errorMessages[result.reason] || 'Verification failed',
+        attemptsLeft: result.attemptsLeft
+      })
+    }
+  } catch (error) {
+    console.error('❌ OTP verify error:', error)
+    res.status(500).json({ error: 'Failed to verify OTP' })
+  }
+})
+
+// ============================================
+// RIDER SUBMISSION
+// ============================================
 
 // Submit rider with SECURITY and NEW FIELDS
 app.post('/api/riders', submissionLimiter, async (req, res) => {

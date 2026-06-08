@@ -303,3 +303,170 @@
     width: 100%;
   }
 }
+
+/* OTP Verification Styles */
+.inputSuccess {
+  border-color: var(--success) !important;
+  background: #f0fdf4 !important;
+}
+
+.successMessage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px var(--spacing-md);
+  background: #d1fae5;
+  color: #065f46;
+  border-radius: 12px;
+  font-size: var(--font-label);
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.helperText {
+  font-size: var(--font-label);
+  color: var(--gray);
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+.otpButton {
+  width: 100%;
+  min-height: 52px;
+  padding: 14px var(--spacing-md);
+  margin-top: 12px;
+  background: var(--primary);
+  color: var(--white);
+  border: none;
+  border-radius: 14px;
+  font-size: var(--font-base);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.otpButton:hover:not(:disabled) {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+}
+
+.otpButton:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.otpButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.otpSection {
+  padding: var(--spacing-lg);
+  background: #f0fdf4;
+  border: 2px solid var(--primary);
+  border-radius: 16px;
+  margin-top: var(--spacing-md);
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.otpActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
+.verifyButton {
+  min-height: var(--button-height);
+  padding: 16px var(--spacing-lg);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  color: var(--white);
+  border: none;
+  border-radius: 16px;
+  font-size: var(--font-button);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.verifyButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(16, 185, 129, 0.4);
+}
+
+.verifyButton:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.verifyButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.resendButton {
+  min-height: 48px;
+  padding: 14px var(--spacing-md);
+  background: var(--white);
+  color: var(--primary);
+  border: 2px solid var(--primary);
+  border-radius: 14px;
+  font-size: var(--font-base);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.resendButton:hover:not(:disabled) {
+  background: var(--primary-light);
+}
+
+.resendButton:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.resendButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Tablet and Desktop */
+@media (min-width: 640px) {
+  .otpActions {
+    flex-direction: row;
+  }
+
+  .verifyButton {
+    flex: 2;
+  }
+
+  .resendButton {
+    flex: 1;
+  }
+
+  .otpButton {
+    max-width: 200px;
+  }
+}
+
+/* Loading State */
+.otpButton:disabled,
+.verifyButton:disabled,
+.resendButton:disabled {
+  pointer-events: none;
+}
