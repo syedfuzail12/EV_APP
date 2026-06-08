@@ -80,8 +80,16 @@ function QuestionnaireForm() {
       case 3: // Section D
         return formData.accidentInsurance && formData.healthInsurance && 
                formData.paidForAccident
-      case 4: // Section E
-        return formData.switchToEV
+      case 4: // Section E - conditional validation
+        // Always need switchToEV answered (auto-set for EV riders)
+        if (formData.vehicleType === 'Electric Two-Wheeler') {
+          // Auto-set to 'alreadyOnEV' if not set
+          if (!formData.switchToEV) {
+            handleChange('switchToEV', 'alreadyOnEV')
+          }
+          return true
+        }
+        return formData.switchToEV // Required for non-EV riders
       case 5: // Section F
         return formData.consentGiven && (!formData.referredBy || formData.referralCode)
       default:
@@ -144,7 +152,7 @@ function QuestionnaireForm() {
       case 3:
         return <SectionD formData={formData} onChange={handleChange} t={t} />
       case 4:
-        return <SectionE formData={formData} onChange={handleChange} onMultiSelect={handleMultiSelect} t={t} />
+        return <SectionE formData={formData} onChange={handleChange} onMultiSelect={handleMultiSelect} vehicleType={formData.vehicleType} t={t} />
       case 5:
         return <SectionF formData={formData} onChange={handleChange} t={t} />
       default:
@@ -338,8 +346,11 @@ function SectionA({ formData, onChange, onMultiSelect, t }) {
   )
 }
 
-// Section B: Vehicle Info (unchanged)
+// Section B: Vehicle Info (with conditional fuel/charge methods)
 function SectionB({ formData, onChange, t }) {
+  const isEV = formData.vehicleType === 'Electric Two-Wheeler'
+  const isPetrol = formData.vehicleType === 'Petrol Two-Wheeler'
+
   return (
     <div className={styles.section}>
       <div className={styles.fieldGroup}>
@@ -369,22 +380,50 @@ function SectionB({ formData, onChange, t }) {
       </div>
 
       <div className={styles.fieldGroup}>
-        <label className={styles.fieldLabel}>{t('fuelMethod') || 'Refuel/Charge Method'} *</label>
+        <label className={styles.fieldLabel}>
+          {isEV ? 'Charging Method' : isPetrol ? 'Refueling Method' : 'Fuel/Charge Method'} *
+        </label>
         <select 
           value={formData.fuelMethod}
           onChange={(e) => onChange('fuelMethod', e.target.value)}
           className={styles.select}
         >
           <option value="">Select method</option>
-          <option value="Petrol Pump">Petrol Pump</option>
-          <option value="Home Charging">Home Charging</option>
-          <option value="Swapping Station">Swapping Station</option>
-          <option value="Other">Other</option>
+          
+          {/* Show only for Petrol vehicles */}
+          {isPetrol && (
+            <>
+              <option value="Petrol Pump">Petrol Pump</option>
+              <option value="Other">Other</option>
+            </>
+          )}
+          
+          {/* Show only for EV */}
+          {isEV && (
+            <>
+              <option value="Home Charging">Home Charging</option>
+              <option value="Swapping Station">Swapping Station</option>
+              <option value="Public Charging Station">Public Charging Station</option>
+              <option value="Other">Other</option>
+            </>
+          )}
+          
+          {/* Show for other vehicles (Four-Wheeler, Bicycle, or not selected) */}
+          {!isEV && !isPetrol && (
+            <>
+              <option value="Petrol Pump">Petrol Pump</option>
+              <option value="Home Charging">Home Charging</option>
+              <option value="Swapping Station">Swapping Station</option>
+              <option value="Other">Other</option>
+            </>
+          )}
         </select>
       </div>
 
       <div className={styles.fieldGroup}>
-        <label className={styles.fieldLabel}>{t('weeklyExpense') || 'Weekly Fuel/Charge Expense (₹)'} *</label>
+        <label className={styles.fieldLabel}>
+          {isEV ? 'Weekly Charging Expense (₹)' : 'Weekly Fuel/Charge Expense (₹)'} *
+        </label>
         <input
           type="number"
           placeholder="e.g., 500"
@@ -410,10 +449,40 @@ function SectionB({ formData, onChange, t }) {
 
 // Section C: Challenges (CONDITIONAL LOGIC - only show relevant challenges)
 function SectionC({ formData, onChange, onMultiSelect, vehicleType, t }) {
-  const generalChallenges = [
-    'High fuel cost', 'Frequent breakdown', 'No nearby charging station',
-    'Battery range anxiety', 'Repair costs', 'Long refuelling time', 'Other'
-  ]
+  const isEV = vehicleType === 'Electric Two-Wheeler'
+  const isPetrol = vehicleType === 'Petrol Two-Wheeler'
+
+  // General challenges - filtered based on vehicle type
+  const getGeneralChallenges = () => {
+    const allChallenges = [
+      'High fuel cost',
+      'Frequent breakdown',
+      'No nearby charging station',
+      'Battery range anxiety',
+      'Repair costs',
+      'Long refuelling time',
+      'Other'
+    ]
+
+    // Filter out irrelevant challenges
+    if (isPetrol) {
+      return allChallenges.filter(c => 
+        c !== 'No nearby charging station' && 
+        c !== 'Battery range anxiety'
+      )
+    }
+    
+    if (isEV) {
+      return allChallenges.filter(c => 
+        c !== 'High fuel cost' && 
+        c !== 'Long refuelling time'
+      )
+    }
+
+    return allChallenges
+  }
+
+  const generalChallenges = getGeneralChallenges()
   
   const evChallenges = [
     'Battery drains too fast', 'Swapping station too far', 'Long charging time at home',
@@ -424,9 +493,6 @@ function SectionC({ formData, onChange, onMultiSelect, vehicleType, t }) {
     'Fuel price too high', 'Frequent engine issues', 'Pollution fine risk',
     'High servicing cost', 'Other'
   ]
-
-  const isEV = vehicleType === 'Electric Two-Wheeler'
-  const isPetrol = vehicleType === 'Petrol Two-Wheeler'
 
   return (
     <div className={styles.section}>
@@ -556,16 +622,48 @@ function SectionD({ formData, onChange, t }) {
   )
 }
 
-// Section E: EV Interest + Product Accessories
-function SectionE({ formData, onChange, onMultiSelect, t }) {
+// Section E: EV Interest + Product Accessories (HIGHLY CONDITIONAL)
+function SectionE({ formData, onChange, onMultiSelect, vehicleType, t }) {
+  const isEV = vehicleType === 'Electric Two-Wheeler'
+  const isPetrol = vehicleType === 'Petrol Two-Wheeler'
+  const isFourWheeler = vehicleType === 'Four-Wheeler'
+  const isBicycle = vehicleType === 'Bicycle'
+
   const switchReasons = [
     'Lower rental cost', 'Better battery range', 'Swap stations nearby',
     'Income guarantee', 'Employer subsidy', 'Other'
   ]
 
-  const interests = [
-    'EV rental offer', 'Insurance quote', 'Retrofit information', 'All of the above', 'None'
-  ]
+  // Interests - conditional based on vehicle type
+  const getInterests = () => {
+    if (isEV) {
+      return [
+        'Better EV rental offer',
+        'Insurance quote',
+        'Accessories',
+        'All of the above',
+        'None'
+      ]
+    } else if (isPetrol) {
+      return [
+        'EV rental offer',
+        'Retrofit information',
+        'Insurance quote',
+        'All of the above',
+        'None'
+      ]
+    } else {
+      return [
+        'EV information',
+        'Insurance quote',
+        'Accessories',
+        'All of the above',
+        'None'
+      ]
+    }
+  }
+
+  const interests = getInterests()
 
   const accessories = [
     'Phone mount', 'Power bank', 'Emergency light', 'Raincoat',
@@ -574,46 +672,100 @@ function SectionE({ formData, onChange, onMultiSelect, t }) {
 
   return (
     <div className={styles.section}>
-      <div className={styles.fieldGroup}>
-        <label className={styles.fieldLabel}>{t('switchToEV') || 'Would you switch to an electric vehicle?'} *</label>
-        <div className={styles.radioGroup}>
-          {[
-            { value: 'yes', label: 'Yes' },
-            { value: 'no', label: 'No' },
-            { value: 'alreadyOnEV', label: 'Already on EV' },
-            { value: 'needMoreInfo', label: 'Need more info' }
-          ].map(option => (
-            <label key={option.value} className={styles.radioCard}>
+      {/* CONDITIONAL: Only ask petrol/four-wheeler riders about switching to EV */}
+      {!isEV && !isBicycle && (
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel}>
+            {isPetrol ? 'Would you switch to an electric two-wheeler?' : 'Would you switch to an electric vehicle?'} *
+          </label>
+          <div className={styles.radioGroup}>
+            {[
+              { value: 'yes', label: 'Yes, interested' },
+              { value: 'no', label: 'No, happy with current' },
+              { value: 'needMoreInfo', label: 'Need more info' }
+            ].map(option => (
+              <label key={option.value} className={styles.radioCard}>
+                <input
+                  type="radio"
+                  name="switchToEV"
+                  checked={formData.switchToEV === option.value}
+                  onChange={() => onChange('switchToEV', option.value)}
+                />
+                <span className={styles.radioLabel}>{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* CONDITIONAL: If already on EV, auto-set and don't show */}
+      {isEV && (
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel}>Vehicle Status *</label>
+          <div className={styles.radioGroup}>
+            <label className={styles.radioCard}>
               <input
                 type="radio"
                 name="switchToEV"
-                checked={formData.switchToEV === option.value}
-                onChange={() => onChange('switchToEV', option.value)}
+                checked={true}
+                onChange={() => onChange('switchToEV', 'alreadyOnEV')}
               />
-              <span className={styles.radioLabel}>{option.label}</span>
+              <span className={styles.radioLabel}>✅ Already using Electric Two-Wheeler</span>
             </label>
-          ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className={styles.fieldGroup}>
-        <label className={styles.fieldLabel}>{t('switchReasons') || 'Why would you switch?'}</label>
-        <div className={styles.checkboxGrid}>
-          {switchReasons.map(reason => (
-            <label key={reason} className={styles.checkboxCard}>
-              <input
-                type="checkbox"
-                checked={formData.switchReasons.includes(reason)}
-                onChange={() => onMultiSelect('switchReasons', reason)}
-              />
-              <span className={styles.checkboxLabel}>{reason}</span>
-            </label>
-          ))}
+      {/* CONDITIONAL: If bicycle, different question */}
+      {isBicycle && (
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel}>Would you consider using an electric two-wheeler for deliveries? *</label>
+          <div className={styles.radioGroup}>
+            {[
+              { value: 'yes', label: 'Yes, considering it' },
+              { value: 'no', label: 'No, prefer bicycle' },
+              { value: 'needMoreInfo', label: 'Need more info' }
+            ].map(option => (
+              <label key={option.value} className={styles.radioCard}>
+                <input
+                  type="radio"
+                  name="switchToEV"
+                  checked={formData.switchToEV === option.value}
+                  onChange={() => onChange('switchToEV', option.value)}
+                />
+                <span className={styles.radioLabel}>{option.label}</span>
+              </label>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
+      {/* CONDITIONAL: Only ask reasons if they said yes or need more info */}
+      {(formData.switchToEV === 'yes' || formData.switchToEV === 'needMoreInfo') && !isEV && (
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel}>
+            {isPetrol ? 'What would make you switch to EV?' : 'What interests you about electric vehicles?'}
+          </label>
+          <div className={styles.checkboxGrid}>
+            {switchReasons.map(reason => (
+              <label key={reason} className={styles.checkboxCard}>
+                <input
+                  type="checkbox"
+                  checked={formData.switchReasons.includes(reason)}
+                  onChange={() => onMultiSelect('switchReasons', reason)}
+                />
+                <span className={styles.checkboxLabel}>{reason}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* For all riders: What are you interested in? */}
       <div className={styles.fieldGroup}>
-        <label className={styles.fieldLabel}>{t('interested') || 'What are you interested in?'}</label>
+        <label className={styles.fieldLabel}>
+          {isEV ? 'What else can we help you with?' : 'What are you interested in?'}
+        </label>
         <div className={styles.checkboxGrid}>
           {interests.map(interest => (
             <label key={interest} className={styles.checkboxCard}>
@@ -628,8 +780,11 @@ function SectionE({ formData, onChange, onMultiSelect, t }) {
         </div>
       </div>
 
+      {/* For all riders: Product accessories */}
       <div className={styles.fieldGroup}>
-        <label className={styles.fieldLabel}>🎁 Which rider accessories would help your work?</label>
+        <label className={styles.fieldLabel}>
+          🎁 {isBicycle ? 'Which accessories would help your bicycle deliveries?' : 'Which rider accessories would help your work?'}
+        </label>
         <div className={styles.checkboxGrid}>
           {accessories.map(accessory => (
             <label key={accessory} className={styles.checkboxCard}>
