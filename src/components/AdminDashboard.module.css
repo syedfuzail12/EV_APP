@@ -250,3 +250,242 @@ tbody tr:hover {
     padding: 8px;
   }
 }
+
+
+/* New Styles for Enhanced Dashboard */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.exportBtn {
+  padding: 12px 24px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s;
+}
+
+.exportBtn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+/* Segment Section */
+.segmentSection {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+  margin-bottom: 32px;
+}
+
+.segmentGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.segmentCard {
+  background: var(--light-gray);
+  border-radius: 16px;
+  padding: 20px;
+  border: 2px solid var(--border);
+  transition: all 0.2s;
+}
+
+.segmentCard:hover {
+  border-color: var(--primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.segmentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.segmentName {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dark);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.segmentCount {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.segmentExportBtn {
+  width: 100%;
+  padding: 10px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.segmentExportBtn:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.segmentExportBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Filters Section */
+.filtersSection {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+  margin-bottom: 32px;
+}
+
+.advancedFilters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.filterSelect {
+  padding: 10px 16px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--dark);
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filterSelect:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.clearFiltersBtn {
+  padding: 10px 20px;
+  background: var(--error);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clearFiltersBtn:hover {
+  opacity: 0.8;
+}
+
+/* Table Section */
+.tableSection {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+  margin-bottom: 32px;
+}
+
+.tableContainer {
+  overflow-x: auto;
+}
+
+/* Tags */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag {
+  display: inline-block;
+  padding: 4px 8px;
+  background: var(--primary-light);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Follow-up Badges */
+.followUpBadge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.followUpBadge.New {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--primary);
+}
+
+.followUpBadge.Pending {
+  background: rgba(251, 191, 36, 0.1);
+  color: var(--warning);
+}
+
+.followUpBadge.Contacted {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--info);
+}
+
+.followUpBadge.NeedsFollow-up,
+.followUpBadge.Needs {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--error);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .exportBtn {
+    width: 100%;
+  }
+
+  .segmentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .advancedFilters {
+    flex-direction: column;
+  }
+
+  .filterSelect {
+    width: 100%;
+  }
+
+  .clearFiltersBtn {
+    width: 100%;
+  }
+}

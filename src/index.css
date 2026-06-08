@@ -5,47 +5,79 @@
 }
 
 :root {
-  --primary: #10b981;
+  /* Primary Colors - Green (Energetic, EV-friendly) */
+  --primary: #10B981;
   --primary-dark: #059669;
-  --primary-light: rgba(16, 185, 129, 0.1);
-  --text-dark: #1f2937;
-  --text-gray: #6b7280;
-  --bg-light: #f9fafb;
-  --border: #e5e7eb;
-  --white: #ffffff;
-  --error: #ef4444;
-  --success: #10b981;
+  --primary-light: #D1FAE5;
+  
+  /* Accent Colors - Orange (Action, Enthusiasm) */
+  --accent: #F97316;
+  --accent-dark: #EA580C;
+  --accent-light: #FED7AA;
+  
+  /* Neutral Colors */
+  --dark: #1F2937;
+  --gray: #6B7280;
+  --light-gray: #F3F4F6;
+  --border: #E5E7EB;
+  --white: #FFFFFF;
+  
+  /* Status Colors */
+  --success: #34D399;
+  --error: #EF4444;
+  --warning: #FBBF24;
+  --info: #3B82F6;
+  
+  /* Typography - Mobile First (16px base) */
+  --font-base: 16px;
+  --font-button: 18px;
+  --font-label: 14px;
+  --font-heading: 24px;
+  --font-title: 32px;
+  
+  /* Spacing */
+  --tap-target: 48px;
+  --input-height: 56px;
+  --button-height: 56px;
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-size: var(--font-base);
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--white) 100%);
   min-height: 100vh;
-  color: var(--text-dark);
+  color: var(--dark);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   min-height: 100vh;
 }
 
-input, select, textarea {
+input, select, textarea, button {
   font-family: inherit;
+  font-size: var(--font-base);
 }
 
 button {
   cursor: pointer;
-  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .container {
-  max-width: 480px;
+  max-width: 640px;
   margin: 0 auto;
-  padding: 20px;
+  padding: var(--spacing-md);
 }
 
 @media (max-width: 640px) {
   .container {
-    padding: 16px;
+    padding: var(--spacing-md);
   }
 }

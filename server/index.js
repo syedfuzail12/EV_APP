@@ -5,13 +5,28 @@ import { createClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
 import QRCode from 'qrcode'
 import axios from 'axios'
+import helmet from 'helmet'
+import { submissionLimiter, apiLimiter, whatsappLimiter } from './middleware/rateLimiter.js'
+import { validatePhone, validatePinCode, detectHoneypot, sanitizeString } from './utils/validation.js'
+import { calculateLeadTags, calculateSegment, calculateFollowUpStatus } from './utils/segmentation.js'
+import { generateCSV } from './utils/csvExport.js'
 
 dotenv.config()
 
 const app = express()
+
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: false, // Allow loading external resources (QR codes, etc.)
+  crossOriginEmbedderPolicy: false
+}))
+
 app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true })) // For Twilio webhook
+
+// Apply general API rate limiting
+app.use('/api', apiLimiter)
 
 // Supabase client (mock mode if not configured)
 const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_KEY 
@@ -58,23 +73,9 @@ function calculatePoints(referralCount) {
   return points
 }
 
-// Segment rider based on responses
+// Segment rider based on responses (LEGACY - for backward compatibility)
 function segmentRider(data) {
-  const segments = []
-  
-  if (data.switchToEV === 'yes') {
-    segments.push('Hot EV Lead')
-  }
-  
-  if (data.accidentInsurance === 'no' || data.healthInsurance === 'no') {
-    segments.push('Insurance Lead')
-  }
-  
-  if (data.vehicleType === 'Petrol Two-Wheeler' && data.switchToEV === 'yes') {
-    segments.push('Retrofit Lead')
-  }
-  
-  return segments.join(', ') || 'General'
+  return calculateSegment(data)
 }
 
 // Send WhatsApp message
@@ -203,13 +204,50 @@ async function checkDuplicate(phone) {
   return !!data
 }
 
-// Submit rider
-app.post('/api/riders', async (req, res) => {
+// Submit rider with SECURITY and NEW FIELDS
+app.post('/api/riders', submissionLimiter, async (req, res) => {
   try {
     const riderData = req.body
     
+    // SECURITY: Check honeypot (bot detection)
+    if (detectHoneypot(req)) {
+      console.log('🤖 Bot detected via honeypot')
+      return res.status(400).json({ error: 'Invalid submission' })
+    }
+    
+    // SECURITY: Validate phone number
+    if (!validatePhone(riderData.whatsapp)) {
+      return res.status(400).json({ 
+        error: 'Invalid phone number. Must be 10 digits starting with 6-9' 
+      })
+    }
+    
+    // SECURITY: Validate PIN code if provided
+    if (riderData.pinCode && !validatePinCode(riderData.pinCode)) {
+      return res.status(400).json({ 
+        error: 'Invalid PIN code. Must be exactly 6 digits' 
+      })
+    }
+    
+    // SECURITY: Check consent
+    if (!riderData.consentGiven) {
+      return res.status(400).json({ 
+        error: 'Privacy consent is required to register' 
+      })
+    }
+    
+    // Sanitize string inputs
+    riderData.fullName = sanitizeString(riderData.fullName)
+    riderData.vehicleBrand = sanitizeString(riderData.vehicleBrand)
+    
     // Generate referral code
     const referralCode = generateReferralCode()
+    
+    // Calculate lead tags (6 precise types)
+    const leadTags = calculateLeadTags(riderData)
+    
+    // Calculate follow-up status
+    const followUpStatus = calculateFollowUpStatus(new Date().toISOString(), false)
     
     // MOCK MODE: If no database configured
     if (!supabase) {
@@ -221,6 +259,8 @@ app.post('/api/riders', async (req, res) => {
         full_name: riderData.fullName,
         whatsapp: riderData.whatsapp,
         city: riderData.city,
+        pin_code: riderData.pinCode || null,
+        platforms: riderData.platforms || [riderData.platform],
         platform: riderData.platform,
         experience: riderData.experience,
         vehicle_type: riderData.vehicleType,
@@ -237,12 +277,17 @@ app.post('/api/riders', async (req, res) => {
         switch_to_ev: riderData.switchToEV,
         switch_reasons: riderData.switchReasons,
         interested: riderData.interested,
+        accessories: riderData.accessories || [],
+        consent_given: riderData.consentGiven,
         referred_by_code: riderData.referralCode || null,
         referral_code: referralCode,
         points: 10,
         referral_count: 0,
         segment: segmentRider(riderData),
+        lead_tags: leadTags,
+        follow_up_status: followUpStatus,
         language: riderData.language,
+        otp_verified: false,
         created_at: new Date().toISOString()
       }
       
@@ -266,6 +311,7 @@ app.post('/api/riders', async (req, res) => {
         success: true,
         referralCode: referralCode,
         points: 10,
+        leadTags: leadTags,
         rider: newRider
       })
     }
@@ -323,14 +369,16 @@ app.post('/api/riders', async (req, res) => {
     // Segment the rider
     const segment = segmentRider(riderData)
     
-    // Insert rider
+    // Insert rider with NEW FIELDS
     const { data: newRider, error } = await supabase
       .from('riders')
       .insert([{
         full_name: riderData.fullName,
         whatsapp: riderData.whatsapp,
         city: riderData.city,
-        platform: riderData.platform,
+        pin_code: riderData.pinCode || null,
+        platforms: riderData.platforms || [riderData.platform],
+        platform: riderData.platform, // Keep for backward compatibility
         experience: riderData.experience,
         vehicle_type: riderData.vehicleType,
         vehicle_brand: riderData.vehicleBrand,
@@ -346,12 +394,17 @@ app.post('/api/riders', async (req, res) => {
         switch_to_ev: riderData.switchToEV,
         switch_reasons: riderData.switchReasons,
         interested: riderData.interested,
+        accessories: riderData.accessories || [],
+        consent_given: riderData.consentGiven,
         referred_by_code: riderData.referralCode || null,
         referral_code: referralCode,
         points: 10,
         referral_count: 0,
         segment: segment,
+        lead_tags: leadTags,
+        follow_up_status: followUpStatus,
         language: riderData.language,
+        otp_verified: false,
         created_at: new Date().toISOString()
       }])
       .select()
@@ -375,6 +428,7 @@ app.post('/api/riders', async (req, res) => {
       success: true,
       referralCode: referralCode,
       points: 10,
+      leadTags: leadTags,
       rider: newRider,
       notificationSent: notificationResult.success,
       notificationMethod: notificationResult.method
@@ -588,6 +642,57 @@ app.get('/api/ip', async (req, res) => {
       error: 'Could not get IP',
       alternative: 'Check Render logs for actual IP making request to MSG91'
     })
+  }
+})
+
+// CSV Export endpoint (with segment filtering)
+app.get('/api/export/csv', async (req, res) => {
+  try {
+    const { segment, city, pinCode, platform, followUp } = req.query
+    
+    let riders = []
+    
+    // MOCK MODE
+    if (!supabase) {
+      riders = mockDatabase
+    } else {
+      // REAL MODE: Query database
+      let query = supabase.from('riders').select('*')
+      
+      // Apply filters
+      if (segment && segment !== 'all') {
+        query = query.contains('lead_tags', [segment])
+      }
+      if (city) {
+        query = query.eq('city', city)
+      }
+      if (pinCode) {
+        query = query.eq('pin_code', pinCode)
+      }
+      if (platform) {
+        query = query.eq('platform', platform)
+      }
+      if (followUp) {
+        query = query.eq('follow_up_status', followUp)
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false })
+      
+      if (error) throw error
+      riders = data
+    }
+    
+    // Convert to CSV
+    const csv = generateCSV(riders)
+    
+    // Set headers for file download
+    const filename = `riders_export_${Date.now()}.csv`
+    res.setHeader('Content-Type', 'text/csv')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    res.send(csv)
+  } catch (error) {
+    console.error('Error exporting CSV:', error)
+    res.status(500).json({ error: 'Failed to export data' })
   }
 })
 
@@ -1081,7 +1186,13 @@ app.post('/api/whatsapp', async (req, res) => {
         console.error('❌ Save error:', saveError)
         console.error('❌ Error details:', saveError.message)
         console.error('❌ Session data:', JSON.stringify(session.data))
-        await sendNotification(from, "❌ Sorry, something went wrong. Please try again or type 'restart'")
+        
+        // Handle duplicate phone number
+        if (saveError.code === '23505' && saveError.message.includes('whatsapp_key')) {
+          await sendNotification(from, `❌ This phone number (${session.data.whatsapp}) is already registered! Each number can only register once. If you need help, type 'restart' to start over with a different number.`)
+        } else {
+          await sendNotification(from, "❌ Sorry, something went wrong. Please try again or type 'restart'")
+        }
       }
     } else {
       console.log('📤 Sending next question')

@@ -12,13 +12,14 @@ function QuestionnaireForm() {
   const location = useLocation()
   const [currentSection, setCurrentSection] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [phoneAlreadyExists, setPhoneAlreadyExists] = useState(false)
   
   const [formData, setFormData] = useState({
     fullName: '',
     whatsapp: '',
     city: '',
-    platform: '',
+    pinCode: '',
+    platforms: [],
+    platform: '', // Kept for backward compatibility
     experience: '',
     vehicleType: '',
     vehicleBrand: '',
@@ -34,8 +35,12 @@ function QuestionnaireForm() {
     switchToEV: '',
     switchReasons: [],
     interested: [],
+    accessories: [],
+    consentGiven: false,
     referredBy: false,
-    referralCode: ''
+    referralCode: '',
+    // Honeypot field (hidden from users, bots will fill it)
+    website: ''
   })
 
   useEffect(() => {
@@ -48,15 +53,6 @@ function QuestionnaireForm() {
       }))
     }
   }, [location.state])
-
-  useEffect(() => {
-    // Auto-detect language based on city
-    if (formData.city === 'Bangalore' || formData.city === 'bangalore') {
-      if (i18n.language !== 'kn') {
-        // Could suggest Kannada but respect user's choice
-      }
-    }
-  }, [formData.city])
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -75,7 +71,7 @@ function QuestionnaireForm() {
     switch (currentSection) {
       case 0: // Section A
         return formData.fullName && formData.whatsapp && formData.city && 
-               formData.platform && formData.experience
+               formData.platforms.length > 0 && formData.experience
       case 1: // Section B
         return formData.vehicleType && formData.fuelMethod && 
                formData.weeklyExpense && formData.monthlyMaintenance
@@ -87,7 +83,7 @@ function QuestionnaireForm() {
       case 4: // Section E
         return formData.switchToEV
       case 5: // Section F
-        return !formData.referredBy || formData.referralCode
+        return formData.consentGiven && (!formData.referredBy || formData.referralCode)
       default:
         return true
     }
@@ -97,6 +93,7 @@ function QuestionnaireForm() {
     if (validateSection()) {
       if (currentSection < SECTIONS.length - 1) {
         setCurrentSection(prev => prev + 1)
+        window.scrollTo(0, 0)
       } else {
         handleSubmit()
       }
@@ -106,12 +103,16 @@ function QuestionnaireForm() {
   const handleBack = () => {
     if (currentSection > 0) {
       setCurrentSection(prev => prev - 1)
+      window.scrollTo(0, 0)
     }
   }
 
   const handleSubmit = async () => {
     setLoading(true)
     try {
+      // Set platform to first selected platform for backward compatibility
+      formData.platform = formData.platforms[0] || ''
+      
       const result = await submitRider({
         ...formData,
         language: i18n.language,
@@ -121,12 +122,13 @@ function QuestionnaireForm() {
         state: { 
           referralCode: result.referralCode, 
           points: result.points,
+          leadTags: result.leadTags,
           notificationSent: result.notificationSent,
           notificationMethod: result.notificationMethod
         } 
       })
     } catch (error) {
-      alert('Submission failed. Please try again.')
+      alert(error.message || 'Submission failed. Please try again.')
       setLoading(false)
     }
   }
@@ -134,11 +136,11 @@ function QuestionnaireForm() {
   const renderSection = () => {
     switch (currentSection) {
       case 0:
-        return <SectionA formData={formData} onChange={handleChange} t={t} />
+        return <SectionA formData={formData} onChange={handleChange} onMultiSelect={handleMultiSelect} t={t} />
       case 1:
         return <SectionB formData={formData} onChange={handleChange} t={t} />
       case 2:
-        return <SectionC formData={formData} onChange={handleChange} onMultiSelect={handleMultiSelect} t={t} />
+        return <SectionC formData={formData} onChange={handleChange} onMultiSelect={handleMultiSelect} vehicleType={formData.vehicleType} t={t} />
       case 3:
         return <SectionD formData={formData} onChange={handleChange} t={t} />
       case 4:
@@ -152,8 +154,17 @@ function QuestionnaireForm() {
 
   return (
     <div className={styles.questionnaire}>
-      <div className={styles.progress}>
-        <div className={styles.progressBar} style={{ width: `${((currentSection + 1) / SECTIONS.length) * 100}%` }} />
+      {/* Progress Indicator */}
+      <div className={styles.progressContainer}>
+        <div className={styles.progressBar}>
+          <div 
+            className={styles.progressFill} 
+            style={{ width: `${((currentSection + 1) / SECTIONS.length) * 100}%` }}
+          />
+        </div>
+        <div className={styles.progressText}>
+          Section {currentSection + 1} of {SECTIONS.length}
+        </div>
       </div>
 
       <div className={styles.container}>
@@ -161,25 +172,36 @@ function QuestionnaireForm() {
           <h2 className={styles.sectionTitle}>
             {t(`section${SECTIONS[currentSection]}`)}
           </h2>
-          <span className={styles.step}>{currentSection + 1} / {SECTIONS.length}</span>
         </div>
 
         <div className={styles.formContent}>
           {renderSection()}
         </div>
 
+        {/* Honeypot field - hidden from real users */}
+        <input
+          type="text"
+          name="website"
+          value={formData.website}
+          onChange={(e) => handleChange('website', e.target.value)}
+          style={{ display: 'none', position: 'absolute', left: '-9999px' }}
+          tabIndex="-1"
+          autoComplete="off"
+        />
+
         <div className={styles.actions}>
           {currentSection > 0 && (
-            <button className={styles.backBtn} onClick={handleBack}>
-              {t('back')}
+            <button className={styles.backBtn} onClick={handleBack} type="button">
+              {t('back') || '← Back'}
             </button>
           )}
           <button 
             className={styles.nextBtn} 
             onClick={handleNext}
             disabled={!validateSection() || loading}
+            type="button"
           >
-            {loading ? '...' : currentSection === SECTIONS.length - 1 ? t('submit') : t('next')}
+            {loading ? 'Submitting...' : currentSection === SECTIONS.length - 1 ? t('submit') || 'Submit' : t('next') || 'Next →'}
           </button>
         </div>
       </div>
@@ -187,8 +209,8 @@ function QuestionnaireForm() {
   )
 }
 
-// Section Components
-function SectionA({ formData, onChange, t }) {
+// Section A: Basic Info + Multi-select Platforms + PIN Code
+function SectionA({ formData, onChange, onMultiSelect, t }) {
   const [phoneError, setPhoneError] = useState('')
   const [checkingPhone, setCheckingPhone] = useState(false)
 
@@ -202,7 +224,7 @@ function SectionA({ formData, onChange, t }) {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/riders/${phone}`)
       if (response.ok) {
-        setPhoneError('This number is already registered! Please use a different number.')
+        setPhoneError('This number is already registered!')
       } else {
         setPhoneError('')
       }
@@ -224,19 +246,26 @@ function SectionA({ formData, onChange, t }) {
     }
   }
 
+  const platforms = ['Swiggy', 'Zomato', 'Uber Eats', 'Amazon', 'Dunzo', 'Porter', 'Blinkit', 'Other']
+
   return (
     <div className={styles.section}>
-      <input
-        type="text"
-        placeholder={t('fullName')}
-        value={formData.fullName}
-        onChange={(e) => onChange('fullName', e.target.value)}
-        className={styles.input}
-      />
-      <div style={{ position: 'relative' }}>
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('fullName') || 'Full Name'} *</label>
+        <input
+          type="text"
+          placeholder="Enter your full name"
+          value={formData.fullName}
+          onChange={(e) => onChange('fullName', e.target.value)}
+          className={styles.input}
+        />
+      </div>
+
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('whatsapp') || 'WhatsApp Number'} *</label>
         <input
           type="tel"
-          placeholder={t('whatsapp')}
+          placeholder="10 digit mobile number"
           value={formData.whatsapp}
           onChange={(e) => handlePhoneChange(e.target.value)}
           className={`${styles.input} ${phoneError ? styles.inputError : ''}`}
@@ -245,95 +274,142 @@ function SectionA({ formData, onChange, t }) {
         {checkingPhone && <span className={styles.checking}>Checking...</span>}
         {phoneError && <div className={styles.errorMessage}>{phoneError}</div>}
       </div>
-      <select 
-        value={formData.city}
-        onChange={(e) => onChange('city', e.target.value)}
-        className={styles.select}
-      >
-        <option value="">{t('city')}</option>
-        <option value="Bangalore">{t('bangalore')}</option>
-        <option value="Delhi">{t('delhi')}</option>
-        <option value="Mumbai">{t('mumbai')}</option>
-        <option value="Hyderabad">{t('hyderabad')}</option>
-        <option value="Pune">{t('pune')}</option>
-      </select>
-      <select 
-        value={formData.platform}
-        onChange={(e) => onChange('platform', e.target.value)}
-        className={styles.select}
-      >
-        <option value="">{t('platform')}</option>
-        <option value="Swiggy">{t('swiggy')}</option>
-        <option value="Zomato">{t('zomato')}</option>
-        <option value="Blinkit">{t('blinkit')}</option>
-        <option value="Porter">{t('porter')}</option>
-        <option value="Dunzo">{t('dunzo')}</option>
-        <option value="Other">{t('other')}</option>
-      </select>
-      <input
-        type="number"
-        placeholder={t('experience')}
-        value={formData.experience}
-        onChange={(e) => onChange('experience', e.target.value)}
-        className={styles.input}
-        min="0"
-        step="0.5"
-      />
+
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('city') || 'City'} *</label>
+        <select 
+          value={formData.city}
+          onChange={(e) => onChange('city', e.target.value)}
+          className={styles.select}
+        >
+          <option value="">Select your city</option>
+          <option value="Bangalore">Bangalore</option>
+          <option value="Delhi">Delhi</option>
+          <option value="Mumbai">Mumbai</option>
+          <option value="Hyderabad">Hyderabad</option>
+          <option value="Pune">Pune</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>PIN Code</label>
+        <input
+          type="text"
+          placeholder="6-digit PIN code"
+          value={formData.pinCode}
+          onChange={(e) => onChange('pinCode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+          className={styles.input}
+          maxLength={6}
+        />
+      </div>
+
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('platform') || 'Delivery Platforms'} * (Select all that apply)</label>
+        <div className={styles.checkboxGrid}>
+          {platforms.map(platform => (
+            <label key={platform} className={styles.checkboxCard}>
+              <input
+                type="checkbox"
+                checked={formData.platforms.includes(platform)}
+                onChange={() => onMultiSelect('platforms', platform)}
+              />
+              <span className={styles.checkboxLabel}>{platform}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('experience') || 'Years of Experience'} *</label>
+        <select 
+          value={formData.experience}
+          onChange={(e) => onChange('experience', e.target.value)}
+          className={styles.select}
+        >
+          <option value="">Select experience</option>
+          <option value="0.5">Less than 1 year</option>
+          <option value="2">1-3 years</option>
+          <option value="4">3-5 years</option>
+          <option value="6">More than 5 years</option>
+        </select>
+      </div>
     </div>
   )
 }
 
+// Section B: Vehicle Info (unchanged)
 function SectionB({ formData, onChange, t }) {
   return (
     <div className={styles.section}>
-      <select 
-        value={formData.vehicleType}
-        onChange={(e) => onChange('vehicleType', e.target.value)}
-        className={styles.select}
-      >
-        <option value="">{t('vehicleType')}</option>
-        <option value="Petrol Two-Wheeler">{t('petrolTwoWheeler')}</option>
-        <option value="Diesel Two-Wheeler">{t('dieselTwoWheeler')}</option>
-        <option value="Electric Two-Wheeler">{t('electricTwoWheeler')}</option>
-        <option value="Other">{t('other')}</option>
-      </select>
-      <input
-        type="text"
-        placeholder={t('vehicleBrand')}
-        value={formData.vehicleBrand}
-        onChange={(e) => onChange('vehicleBrand', e.target.value)}
-        className={styles.input}
-      />
-      <select 
-        value={formData.fuelMethod}
-        onChange={(e) => onChange('fuelMethod', e.target.value)}
-        className={styles.select}
-      >
-        <option value="">{t('fuelMethod')}</option>
-        <option value="Petrol Pump">{t('petrolPump')}</option>
-        <option value="Home Charging">{t('homeCharging')}</option>
-        <option value="Swapping Station">{t('swappingStation')}</option>
-        <option value="Other">{t('other')}</option>
-      </select>
-      <input
-        type="number"
-        placeholder={t('weeklyExpense')}
-        value={formData.weeklyExpense}
-        onChange={(e) => onChange('weeklyExpense', e.target.value)}
-        className={styles.input}
-      />
-      <input
-        type="number"
-        placeholder={t('monthlyMaintenance')}
-        value={formData.monthlyMaintenance}
-        onChange={(e) => onChange('monthlyMaintenance', e.target.value)}
-        className={styles.input}
-      />
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('vehicleType') || 'Vehicle Type'} *</label>
+        <select 
+          value={formData.vehicleType}
+          onChange={(e) => onChange('vehicleType', e.target.value)}
+          className={styles.select}
+        >
+          <option value="">Select vehicle type</option>
+          <option value="Petrol Two-Wheeler">Petrol Two-Wheeler</option>
+          <option value="Electric Two-Wheeler">Electric Two-Wheeler</option>
+          <option value="Four-Wheeler">Four-Wheeler</option>
+          <option value="Bicycle">Bicycle</option>
+        </select>
+      </div>
+
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('vehicleBrand') || 'Vehicle Brand'}</label>
+        <input
+          type="text"
+          placeholder="e.g., Honda, TVS, Ola, Ather"
+          value={formData.vehicleBrand}
+          onChange={(e) => onChange('vehicleBrand', e.target.value)}
+          className={styles.input}
+        />
+      </div>
+
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('fuelMethod') || 'Refuel/Charge Method'} *</label>
+        <select 
+          value={formData.fuelMethod}
+          onChange={(e) => onChange('fuelMethod', e.target.value)}
+          className={styles.select}
+        >
+          <option value="">Select method</option>
+          <option value="Petrol Pump">Petrol Pump</option>
+          <option value="Home Charging">Home Charging</option>
+          <option value="Swapping Station">Swapping Station</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('weeklyExpense') || 'Weekly Fuel/Charge Expense (₹)'} *</label>
+        <input
+          type="number"
+          placeholder="e.g., 500"
+          value={formData.weeklyExpense}
+          onChange={(e) => onChange('weeklyExpense', e.target.value)}
+          className={styles.input}
+        />
+      </div>
+
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('monthlyMaintenance') || 'Monthly Maintenance Cost (₹)'} *</label>
+        <input
+          type="number"
+          placeholder="e.g., 1000"
+          value={formData.monthlyMaintenance}
+          onChange={(e) => onChange('monthlyMaintenance', e.target.value)}
+          className={styles.input}
+        />
+      </div>
     </div>
   )
 }
 
-function SectionC({ formData, onChange, onMultiSelect, t }) {
+// Section C: Challenges (CONDITIONAL LOGIC - only show relevant challenges)
+function SectionC({ formData, onChange, onMultiSelect, vehicleType, t }) {
   const generalChallenges = [
     'High fuel cost', 'Frequent breakdown', 'No nearby charging station',
     'Battery range anxiety', 'Repair costs', 'Long refuelling time', 'Other'
@@ -349,112 +425,138 @@ function SectionC({ formData, onChange, onMultiSelect, t }) {
     'High servicing cost', 'Other'
   ]
 
+  const isEV = vehicleType === 'Electric Two-Wheeler'
+  const isPetrol = vehicleType === 'Petrol Two-Wheeler'
+
   return (
     <div className={styles.section}>
-      <label className={styles.label}>{t('challenges')}</label>
-      <div className={styles.checkboxGroup}>
-        {generalChallenges.map(challenge => (
-          <label key={challenge} className={styles.checkbox}>
-            <input
-              type="checkbox"
-              checked={formData.challenges.includes(challenge)}
-              onChange={() => onMultiSelect('challenges', challenge)}
-            />
-            <span>{challenge}</span>
-          </label>
-        ))}
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('challenges') || 'What challenges do you face?'} *</label>
+        <div className={styles.checkboxGrid}>
+          {generalChallenges.map(challenge => (
+            <label key={challenge} className={styles.checkboxCard}>
+              <input
+                type="checkbox"
+                checked={formData.challenges.includes(challenge)}
+                onChange={() => onMultiSelect('challenges', challenge)}
+              />
+              <span className={styles.checkboxLabel}>{challenge}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
-      {formData.vehicleType === 'Electric Two-Wheeler' && (
-        <>
-          <label className={styles.label}>{t('evChallenges')}</label>
-          <div className={styles.checkboxGroup}>
+      {/* CONDITIONAL: Only show EV challenges for EV riders */}
+      {isEV && (
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel}>{t('evChallenges') || 'Additional EV Challenges'}</label>
+          <div className={styles.checkboxGrid}>
             {evChallenges.map(challenge => (
-              <label key={challenge} className={styles.checkbox}>
+              <label key={challenge} className={styles.checkboxCard}>
                 <input
                   type="checkbox"
                   checked={formData.evChallenges.includes(challenge)}
                   onChange={() => onMultiSelect('evChallenges', challenge)}
                 />
-                <span>{challenge}</span>
+                <span className={styles.checkboxLabel}>{challenge}</span>
               </label>
             ))}
           </div>
-        </>
+        </div>
       )}
 
-      {formData.vehicleType === 'Petrol Two-Wheeler' && (
-        <>
-          <label className={styles.label}>{t('petrolChallenges')}</label>
-          <div className={styles.checkboxGroup}>
+      {/* CONDITIONAL: Only show Petrol challenges for Petrol riders */}
+      {isPetrol && (
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel}>{t('petrolChallenges') || 'Additional Petrol Vehicle Challenges'}</label>
+          <div className={styles.checkboxGrid}>
             {petrolChallenges.map(challenge => (
-              <label key={challenge} className={styles.checkbox}>
+              <label key={challenge} className={styles.checkboxCard}>
                 <input
                   type="checkbox"
                   checked={formData.petrolChallenges.includes(challenge)}
                   onChange={() => onMultiSelect('petrolChallenges', challenge)}
                 />
-                <span>{challenge}</span>
+                <span className={styles.checkboxLabel}>{challenge}</span>
               </label>
             ))}
           </div>
-        </>
+        </div>
       )}
     </div>
   )
 }
 
+// Section D: Insurance (unchanged)
 function SectionD({ formData, onChange, t }) {
   return (
     <div className={styles.section}>
-      <label className={styles.label}>{t('accidentInsurance')}</label>
-      <div className={styles.radioGroup}>
-        {['yes', 'no', 'notSure'].map(option => (
-          <label key={option} className={styles.radio}>
-            <input
-              type="radio"
-              name="accidentInsurance"
-              checked={formData.accidentInsurance === option}
-              onChange={() => onChange('accidentInsurance', option)}
-            />
-            <span>{t(option)}</span>
-          </label>
-        ))}
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('accidentInsurance') || 'Do you have accident insurance?'} *</label>
+        <div className={styles.radioGroup}>
+          {[
+            { value: 'yes', label: 'Yes' },
+            { value: 'no', label: 'No' },
+            { value: 'notSure', label: 'Not Sure' }
+          ].map(option => (
+            <label key={option.value} className={styles.radioCard}>
+              <input
+                type="radio"
+                name="accidentInsurance"
+                checked={formData.accidentInsurance === option.value}
+                onChange={() => onChange('accidentInsurance', option.value)}
+              />
+              <span className={styles.radioLabel}>{option.label}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
-      <label className={styles.label}>{t('healthInsurance')}</label>
-      <div className={styles.radioGroup}>
-        {['yes', 'no', 'notSure'].map(option => (
-          <label key={option} className={styles.radio}>
-            <input
-              type="radio"
-              name="healthInsurance"
-              checked={formData.healthInsurance === option}
-              onChange={() => onChange('healthInsurance', option)}
-            />
-            <span>{t(option)}</span>
-          </label>
-        ))}
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('healthInsurance') || 'Do you have health insurance?'} *</label>
+        <div className={styles.radioGroup}>
+          {[
+            { value: 'yes', label: 'Yes' },
+            { value: 'no', label: 'No' },
+            { value: 'notSure', label: 'Not Sure' }
+          ].map(option => (
+            <label key={option.value} className={styles.radioCard}>
+              <input
+                type="radio"
+                name="healthInsurance"
+                checked={formData.healthInsurance === option.value}
+                onChange={() => onChange('healthInsurance', option.value)}
+              />
+              <span className={styles.radioLabel}>{option.label}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
-      <label className={styles.label}>{t('paidForAccident')}</label>
-      <div className={styles.radioGroup}>
-        {['yes', 'no'].map(option => (
-          <label key={option} className={styles.radio}>
-            <input
-              type="radio"
-              name="paidForAccident"
-              checked={formData.paidForAccident === option}
-              onChange={() => onChange('paidForAccident', option)}
-            />
-            <span>{t(option)}</span>
-          </label>
-        ))}
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('paidForAccident') || 'Ever paid out-of-pocket for accident/health?'} *</label>
+        <div className={styles.radioGroup}>
+          {[
+            { value: 'yes', label: 'Yes' },
+            { value: 'no', label: 'No' }
+          ].map(option => (
+            <label key={option.value} className={styles.radioCard}>
+              <input
+                type="radio"
+                name="paidForAccident"
+                checked={formData.paidForAccident === option.value}
+                onChange={() => onChange('paidForAccident', option.value)}
+              />
+              <span className={styles.radioLabel}>{option.label}</span>
+            </label>
+          ))}
+        </div>
       </div>
     </div>
   )
 }
 
+// Section E: EV Interest + Product Accessories
 function SectionE({ formData, onChange, onMultiSelect, t }) {
   const switchReasons = [
     'Lower rental cost', 'Better battery range', 'Swap stations nearby',
@@ -465,97 +567,144 @@ function SectionE({ formData, onChange, onMultiSelect, t }) {
     'EV rental offer', 'Insurance quote', 'Retrofit information', 'All of the above', 'None'
   ]
 
+  const accessories = [
+    'Phone mount', 'Power bank', 'Emergency light', 'Raincoat',
+    'Cable lock', 'Seat cushion', 'Handlebar charger', 'None needed'
+  ]
+
   return (
     <div className={styles.section}>
-      <label className={styles.label}>{t('switchToEV')}</label>
-      <div className={styles.radioGroup}>
-        {['yes', 'no', 'alreadyOnEV', 'needMoreInfo'].map(option => (
-          <label key={option} className={styles.radio}>
-            <input
-              type="radio"
-              name="switchToEV"
-              checked={formData.switchToEV === option}
-              onChange={() => onChange('switchToEV', option)}
-            />
-            <span>{t(option)}</span>
-          </label>
-        ))}
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('switchToEV') || 'Would you switch to an electric vehicle?'} *</label>
+        <div className={styles.radioGroup}>
+          {[
+            { value: 'yes', label: 'Yes' },
+            { value: 'no', label: 'No' },
+            { value: 'alreadyOnEV', label: 'Already on EV' },
+            { value: 'needMoreInfo', label: 'Need more info' }
+          ].map(option => (
+            <label key={option.value} className={styles.radioCard}>
+              <input
+                type="radio"
+                name="switchToEV"
+                checked={formData.switchToEV === option.value}
+                onChange={() => onChange('switchToEV', option.value)}
+              />
+              <span className={styles.radioLabel}>{option.label}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
-      <label className={styles.label}>{t('switchReasons')}</label>
-      <div className={styles.checkboxGroup}>
-        {switchReasons.map(reason => (
-          <label key={reason} className={styles.checkbox}>
-            <input
-              type="checkbox"
-              checked={formData.switchReasons.includes(reason)}
-              onChange={() => onMultiSelect('switchReasons', reason)}
-            />
-            <span>{reason}</span>
-          </label>
-        ))}
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('switchReasons') || 'Why would you switch?'}</label>
+        <div className={styles.checkboxGrid}>
+          {switchReasons.map(reason => (
+            <label key={reason} className={styles.checkboxCard}>
+              <input
+                type="checkbox"
+                checked={formData.switchReasons.includes(reason)}
+                onChange={() => onMultiSelect('switchReasons', reason)}
+              />
+              <span className={styles.checkboxLabel}>{reason}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
-      <label className={styles.label}>{t('interested')}</label>
-      <div className={styles.checkboxGroup}>
-        {interests.map(interest => (
-          <label key={interest} className={styles.checkbox}>
-            <input
-              type="checkbox"
-              checked={formData.interested.includes(interest)}
-              onChange={() => onMultiSelect('interested', interest)}
-            />
-            <span>{interest}</span>
-          </label>
-        ))}
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('interested') || 'What are you interested in?'}</label>
+        <div className={styles.checkboxGrid}>
+          {interests.map(interest => (
+            <label key={interest} className={styles.checkboxCard}>
+              <input
+                type="checkbox"
+                checked={formData.interested.includes(interest)}
+                onChange={() => onMultiSelect('interested', interest)}
+              />
+              <span className={styles.checkboxLabel}>{interest}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>🎁 Which rider accessories would help your work?</label>
+        <div className={styles.checkboxGrid}>
+          {accessories.map(accessory => (
+            <label key={accessory} className={styles.checkboxCard}>
+              <input
+                type="checkbox"
+                checked={formData.accessories.includes(accessory)}
+                onChange={() => onMultiSelect('accessories', accessory)}
+              />
+              <span className={styles.checkboxLabel}>{accessory}</span>
+            </label>
+          ))}
+        </div>
       </div>
     </div>
   )
 }
 
+// Section F: Referral + Privacy Consent
 function SectionF({ formData, onChange, t }) {
   const isPreFilled = formData.referredBy && formData.referralCode
   
   return (
     <div className={styles.section}>
       {isPreFilled && (
-        <div style={{ 
-          padding: '12px', 
-          backgroundColor: '#e8f5e9', 
-          borderRadius: '8px', 
-          marginBottom: '16px',
-          color: '#2e7d32',
-          fontSize: '14px',
-          border: '1px solid #4caf50'
-        }}>
-          ✅ {t('referralApplied') || 'Referral code applied'}: <strong>{formData.referralCode}</strong>
+        <div className={styles.successBanner}>
+          ✅ Referral code applied: <strong>{formData.referralCode}</strong>
         </div>
       )}
       
-      <label className={styles.label}>{t('referredBy')}</label>
-      <div className={styles.radioGroup}>
-        {['yes', 'no'].map(option => (
-          <label key={option} className={styles.radio}>
-            <input
-              type="radio"
-              name="referredBy"
-              checked={formData.referredBy === (option === 'yes')}
-              onChange={() => onChange('referredBy', option === 'yes')}
-            />
-            <span>{t(option)}</span>
-          </label>
-        ))}
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>{t('referredBy') || 'Were you referred by someone?'}</label>
+        <div className={styles.radioGroup}>
+          {[
+            { value: true, label: 'Yes' },
+            { value: false, label: 'No' }
+          ].map(option => (
+            <label key={String(option.value)} className={styles.radioCard}>
+              <input
+                type="radio"
+                name="referredBy"
+                checked={formData.referredBy === option.value}
+                onChange={() => onChange('referredBy', option.value)}
+              />
+              <span className={styles.radioLabel}>{option.label}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
       {formData.referredBy && (
-        <input
-          type="text"
-          placeholder={t('referralCode')}
-          value={formData.referralCode}
-          onChange={(e) => onChange('referralCode', e.target.value.toUpperCase())}
-          className={styles.input}
-        />
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel}>{t('referralCode') || 'Referral Code'}</label>
+          <input
+            type="text"
+            placeholder="e.g., RW-A1B2"
+            value={formData.referralCode}
+            onChange={(e) => onChange('referralCode', e.target.value.toUpperCase())}
+            className={styles.input}
+          />
+        </div>
       )}
+
+      <div className={styles.fieldGroup}>
+        <label className={styles.consentLabel}>
+          <input
+            type="checkbox"
+            checked={formData.consentGiven}
+            onChange={(e) => onChange('consentGiven', e.target.checked)}
+            className={styles.consentCheckbox}
+          />
+          <span className={styles.consentText}>
+            I agree that Bharat Riders may use my information to connect me with relevant EV, insurance, and product offers. *
+          </span>
+        </label>
+      </div>
     </div>
   )
 }

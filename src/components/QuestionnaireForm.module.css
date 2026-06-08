@@ -1,70 +1,93 @@
 .questionnaire {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--white) 100%);
 }
 
-.progress {
-  height: 4px;
-  background: rgba(16, 185, 129, 0.2);
+/* Progress Indicator */
+.progressContainer {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 100;
+  background: var(--white);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .progressBar {
+  height: 6px;
+  background: var(--light-gray);
+  position: relative;
+}
+
+.progressFill {
   height: 100%;
-  background: var(--primary);
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
+  transition: width 0.4s ease;
+}
+
+.progressText {
+  text-align: center;
+  padding: 12px;
+  font-size: var(--font-label);
+  font-weight: 600;
+  color: var(--primary);
 }
 
 .container {
-  max-width: 480px;
+  max-width: 640px;
   margin: 0 auto;
-  padding: 80px 20px 40px;
+  padding: 100px var(--spacing-md) var(--spacing-lg);
 }
 
 .header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: var(--spacing-lg);
+  text-align: center;
 }
 
 .sectionTitle {
-  font-size: 24px;
+  font-size: var(--font-heading);
   font-weight: 700;
-  color: var(--text-dark);
-}
-
-.step {
-  font-size: 14px;
-  color: var(--text-gray);
-  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: var(--spacing-xs);
 }
 
 .formContent {
   background: var(--white);
-  border-radius: 20px;
-  padding: 30px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
-  margin-bottom: 20px;
+  border-radius: 24px;
+  padding: var(--spacing-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+  margin-bottom: var(--spacing-lg);
   min-height: 400px;
 }
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--spacing-lg);
 }
 
+/* Field Groups */
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.fieldLabel {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--dark);
+}
+
+/* Form Inputs - Mobile First */
 .input, .select {
   width: 100%;
-  padding: 14px 16px;
+  min-height: var(--input-height);
+  padding: 16px var(--spacing-md);
   border: 2px solid var(--border);
-  border-radius: 12px;
-  font-size: 15px;
+  border-radius: 16px;
+  font-size: var(--font-base);
   transition: all 0.2s;
   background: var(--white);
 }
@@ -72,7 +95,7 @@
 .input:focus, .select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
 }
 
 .inputError {
@@ -81,82 +104,167 @@
 
 .errorMessage {
   color: var(--error);
-  font-size: 13px;
+  font-size: var(--font-label);
   margin-top: 4px;
   font-weight: 500;
 }
 
 .checking {
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 12px;
-  color: var(--text-gray);
+  font-size: var(--font-label);
+  color: var(--gray);
+  margin-top: 4px;
 }
 
-.label {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-dark);
-  margin-top: 8px;
+/* Checkbox Grid - Mobile Optimized */
+.checkboxGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-sm);
 }
 
-.checkboxGroup, .radioGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+@media (min-width: 480px) {
+  .checkboxGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
-.checkbox, .radio {
+.checkboxCard {
   display: flex;
   align-items: center;
-  padding: 12px;
+  gap: var(--spacing-sm);
+  min-height: var(--tap-target);
+  padding: var(--spacing-sm) var(--spacing-md);
   border: 2px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s;
+  background: var(--white);
 }
 
-.checkbox:hover, .radio:hover {
+.checkboxCard:hover, .checkboxCard:active {
   border-color: var(--primary);
   background: var(--primary-light);
 }
 
-.checkbox input, .radio input {
-  margin-right: 10px;
-  width: 18px;
-  height: 18px;
+.checkboxCard input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.checkboxLabel {
+  font-size: var(--font-base);
+  color: var(--dark);
+  flex: 1;
+}
+
+/* Radio Group - Mobile Optimized */
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.radioCard {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-height: var(--tap-target);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--white);
+}
+
+.radioCard:hover, .radioCard:active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.radioCard input[type="radio"] {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.radioLabel {
+  font-size: var(--font-base);
+  color: var(--dark);
+  flex: 1;
+}
+
+/* Privacy Consent */
+.consentLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: var(--primary-light);
+  border-radius: 12px;
   cursor: pointer;
 }
 
-.checkbox span, .radio span {
-  font-size: 14px;
-  color: var(--text-dark);
+.consentCheckbox {
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: var(--primary);
 }
 
+.consentText {
+  font-size: var(--font-label);
+  color: var(--dark);
+  line-height: 1.6;
+}
+
+/* Success Banner */
+.successBanner {
+  padding: var(--spacing-md);
+  background: var(--success);
+  color: var(--white);
+  border-radius: 12px;
+  font-size: var(--font-base);
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: var(--spacing-md);
+}
+
+/* Action Buttons - Thumb Friendly */
 .actions {
   display: flex;
-  gap: 12px;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
 }
 
 .backBtn, .nextBtn {
   flex: 1;
-  padding: 16px;
+  min-height: var(--button-height);
+  padding: 16px var(--spacing-lg);
   border-radius: 16px;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: var(--font-button);
+  font-weight: 700;
   transition: all 0.2s;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .backBtn {
   background: var(--white);
   border: 2px solid var(--border);
-  color: var(--text-dark);
+  color: var(--dark);
+}
+
+.backBtn:active {
+  background: var(--light-gray);
 }
 
 .nextBtn {
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   border: none;
   color: var(--white);
   box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
@@ -165,9 +273,33 @@
 .nextBtn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
-.nextBtn:not(:disabled):hover {
-  background: var(--primary-dark);
-  transform: translateY(-2px);
+.nextBtn:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+/* Mobile Optimizations */
+@media (max-width: 640px) {
+  .container {
+    padding: 90px var(--spacing-sm) var(--spacing-md);
+  }
+
+  .formContent {
+    padding: var(--spacing-md);
+    border-radius: 20px;
+  }
+
+  .sectionTitle {
+    font-size: 20px;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .backBtn, .nextBtn {
+    width: 100%;
+  }
 }
