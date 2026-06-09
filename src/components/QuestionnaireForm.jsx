@@ -13,14 +13,6 @@ function QuestionnaireForm() {
   const [currentSection, setCurrentSection] = useState(0)
   const [loading, setLoading] = useState(false)
   
-  // OTP verification state
-  const [otpSent, setOtpSent] = useState(false)
-  const [otpVerified, setOtpVerified] = useState(false)
-  const [otp, setOtp] = useState('')
-  const [otpLoading, setOtpLoading] = useState(false)
-  const [otpError, setOtpError] = useState('')
-  const [otpCooldown, setOtpCooldown] = useState(0)
-  
   const [formData, setFormData] = useState({
     fullName: '',
     whatsapp: '',
@@ -50,14 +42,6 @@ function QuestionnaireForm() {
     // Honeypot field (hidden from users, bots will fill it)
     website: ''
   })
-  
-  // OTP cooldown timer
-  useEffect(() => {
-    if (otpCooldown > 0) {
-      const timer = setTimeout(() => setOtpCooldown(otpCooldown - 1), 1000)
-      return () => clearTimeout(timer)
-    }
-  }, [otpCooldown])
 
   useEffect(() => {
     // If there's a referral code from QR scan, pre-fill it
@@ -82,93 +66,11 @@ function QuestionnaireForm() {
         : [...prev[field], value]
     }))
   }
-  
-  // Send OTP to phone number
-  const handleSendOTP = async () => {
-    if (!formData.whatsapp || formData.whatsapp.length !== 10) {
-      setOtpError('Please enter a valid 10-digit phone number')
-      return
-    }
-    
-    setOtpLoading(true)
-    setOtpError('')
-    
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/otp/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formData.whatsapp })
-      })
-      
-      const data = await response.json()
-      
-      if (response.ok) {
-        setOtpSent(true)
-        setOtpCooldown(60) // 60 second cooldown
-        setOtpError('')
-        // Show success message briefly
-        alert('OTP sent to your mobile number!')
-      } else {
-        if (data.cooldown) {
-          setOtpCooldown(data.cooldown)
-          setOtpError(`Please wait ${data.cooldown} seconds before resending`)
-        } else {
-          setOtpError(data.error || 'Failed to send OTP. Please try again.')
-        }
-      }
-    } catch (error) {
-      setOtpError('Network error. Please check your connection.')
-    } finally {
-      setOtpLoading(false)
-    }
-  }
-  
-  // Verify OTP entered by user
-  const handleVerifyOTP = async () => {
-    if (otp.length !== 6) {
-      setOtpError('Please enter 6-digit OTP')
-      return
-    }
-    
-    setOtpLoading(true)
-    setOtpError('')
-    
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/otp/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          phone: formData.whatsapp,
-          otp: otp
-        })
-      })
-      
-      const data = await response.json()
-      
-      if (response.ok) {
-        setOtpVerified(true)
-        setOtpError('')
-        setOtp('')
-        alert('✅ Phone number verified successfully!')
-      } else {
-        setOtpError(data.error || 'Invalid OTP')
-        if (data.attemptsLeft !== undefined) {
-          setOtpError(`${data.error} (${data.attemptsLeft} attempts left)`)
-        }
-      }
-    } catch (error) {
-      setOtpError('Verification failed. Please try again.')
-    } finally {
-      setOtpLoading(false)
-    }
-  }
 
   const validateSection = () => {
     switch (currentSection) {
-      case 0: // Section A - Must verify OTP
-        return formData.fullName && formData.whatsapp && 
-               otpVerified && // OTP must be verified
-               formData.city && 
+      case 0: // Section A
+        return formData.fullName && formData.whatsapp && formData.city && 
                formData.platforms.length > 0 && formData.experience
       case 1: // Section B
         return formData.vehicleType && formData.fuelMethod && 
@@ -242,21 +144,7 @@ function QuestionnaireForm() {
   const renderSection = () => {
     switch (currentSection) {
       case 0:
-        return <SectionA 
-          formData={formData} 
-          onChange={handleChange} 
-          onMultiSelect={handleMultiSelect} 
-          t={t}
-          otpSent={otpSent}
-          otpVerified={otpVerified}
-          otp={otp}
-          setOtp={setOtp}
-          otpLoading={otpLoading}
-          otpError={otpError}
-          otpCooldown={otpCooldown}
-          onSendOTP={handleSendOTP}
-          onVerifyOTP={handleVerifyOTP}
-        />
+        return <SectionA formData={formData} onChange={handleChange} onMultiSelect={handleMultiSelect} t={t} />
       case 1:
         return <SectionB formData={formData} onChange={handleChange} t={t} />
       case 2:
@@ -329,8 +217,8 @@ function QuestionnaireForm() {
   )
 }
 
-// Section A: Basic Info + Multi-select Platforms + PIN Code + OTP Verification
-function SectionA({ formData, onChange, onMultiSelect, t, otpSent, otpVerified, otp, setOtp, otpLoading, otpError, otpCooldown, onSendOTP, onVerifyOTP }) {
+// Section A: Basic Info + Multi-select Platforms + PIN Code
+function SectionA({ formData, onChange, onMultiSelect, t }) {
   const [phoneError, setPhoneError] = useState('')
   const [checkingPhone, setCheckingPhone] = useState(false)
 
@@ -388,80 +276,12 @@ function SectionA({ formData, onChange, onMultiSelect, t, otpSent, otpVerified, 
           placeholder="10 digit mobile number"
           value={formData.whatsapp}
           onChange={(e) => handlePhoneChange(e.target.value)}
-          className={`${styles.input} ${phoneError ? styles.inputError : ''} ${otpVerified ? styles.inputSuccess : ''}`}
+          className={`${styles.input} ${phoneError ? styles.inputError : ''}`}
           maxLength={10}
-          disabled={otpVerified}
         />
-        
         {checkingPhone && <span className={styles.checking}>Checking...</span>}
         {phoneError && <div className={styles.errorMessage}>{phoneError}</div>}
-        
-        {/* OTP Verified Badge */}
-        {otpVerified && (
-          <div className={styles.successMessage}>
-            ✅ Phone number verified
-          </div>
-        )}
-        
-        {/* Send OTP Button */}
-        {!otpVerified && formData.whatsapp.length === 10 && !phoneError && (
-          <button
-            type="button"
-            onClick={onSendOTP}
-            disabled={otpLoading || otpCooldown > 0}
-            className={styles.otpButton}
-          >
-            {otpLoading ? 'Sending...' : otpCooldown > 0 ? `Wait ${otpCooldown}s` : otpSent ? 'Resend OTP' : 'Send OTP'}
-          </button>
-        )}
       </div>
-
-      {/* OTP Verification Section */}
-      {otpSent && !otpVerified && (
-        <div className={styles.otpSection}>
-          <div className={styles.fieldGroup}>
-            <label className={styles.fieldLabel}>Enter OTP *</label>
-            <p className={styles.helperText}>
-              📱 We've sent a 6-digit code to your mobile number
-            </p>
-            <input
-              type="text"
-              placeholder="Enter 6-digit code"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              className={styles.input}
-              maxLength={6}
-              autoComplete="off"
-            />
-            
-            {otpError && <div className={styles.errorMessage}>{otpError}</div>}
-            
-            <div className={styles.otpActions}>
-              <button
-                type="button"
-                onClick={onVerifyOTP}
-                disabled={otpLoading || otp.length !== 6}
-                className={styles.verifyButton}
-              >
-                {otpLoading ? 'Verifying...' : 'Verify OTP'}
-              </button>
-              
-              <button
-                type="button"
-                onClick={onSendOTP}
-                disabled={otpLoading || otpCooldown > 0}
-                className={styles.resendButton}
-              >
-                {otpCooldown > 0 ? `Resend in ${otpCooldown}s` : 'Resend OTP'}
-              </button>
-            </div>
-            
-            <p className={styles.helperText}>
-              ⏰ OTP expires in 5 minutes • 3 attempts allowed
-            </p>
-          </div>
-        </div>
-      )}
 
       <div className={styles.fieldGroup}>
         <label className={styles.fieldLabel}>{t('city') || 'City'} *</label>
