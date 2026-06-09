@@ -361,6 +361,16 @@ app.post('/api/riders', submissionLimiter, async (req, res) => {
     
     // Calculate lead tags (6 precise types)
     const leadTags = calculateLeadTags(riderData)
+    console.log('🏷️ Calculated lead tags:', leadTags, 'for rider:', riderData.fullName)
+    console.log('📊 Input data for tags:', {
+      vehicleType: riderData.vehicleType,
+      switchToEV: riderData.switchToEV,
+      interested: riderData.interested,
+      healthInsurance: riderData.healthInsurance,
+      accidentInsurance: riderData.accidentInsurance,
+      paidForAccident: riderData.paidForAccident,
+      accessories: riderData.accessories
+    })
     
     // Calculate follow-up status
     const followUpStatus = calculateFollowUpStatus(new Date().toISOString(), false)
@@ -636,6 +646,8 @@ app.get('/api/riders', async (req, res) => {
         fullName: r.full_name,
         whatsapp: r.whatsapp,
         city: r.city,
+        pinCode: r.pin_code,
+        platforms: r.platforms || [r.platform],
         platform: r.platform,
         experience: r.experience,
         vehicleType: r.vehicle_type,
@@ -652,10 +664,13 @@ app.get('/api/riders', async (req, res) => {
         switchToEV: r.switch_to_ev,
         switchReasons: r.switch_reasons,
         interested: r.interested,
+        accessories: r.accessories || [],
         referralCode: r.referral_code,
         points: r.points || 10,
         referralCount: r.referral_count || 0,
         segment: r.segment,
+        leadTags: r.lead_tags || [],
+        followUpStatus: r.follow_up_status || 'New',
         language: r.language,
         createdAt: r.created_at
       }))
@@ -675,6 +690,8 @@ app.get('/api/riders', async (req, res) => {
       fullName: r.full_name,
       whatsapp: r.whatsapp,
       city: r.city,
+      pinCode: r.pin_code,
+      platforms: r.platforms || [r.platform],
       platform: r.platform,
       experience: r.experience,
       vehicleType: r.vehicle_type,
@@ -691,10 +708,13 @@ app.get('/api/riders', async (req, res) => {
       switchToEV: r.switch_to_ev,
       switchReasons: r.switch_reasons,
       interested: r.interested,
+      accessories: r.accessories || [],
       referralCode: r.referral_code,
       points: r.points || 10,
       referralCount: r.referral_count || 0,
       segment: r.segment,
+      leadTags: r.lead_tags || [],
+      followUpStatus: r.follow_up_status || 'New',
       language: r.language,
       createdAt: r.created_at
     }))

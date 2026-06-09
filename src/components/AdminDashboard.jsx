@@ -34,7 +34,7 @@ function AdminDashboard() {
 
   // Get unique values for filters
   const cities = [...new Set(riders.map(r => r.city).filter(Boolean))]
-  const pinCodes = [...new Set(riders.map(r => r.pinCode || r.pin_code).filter(Boolean))]
+  const pinCodes = [...new Set(riders.map(r => r.pinCode).filter(Boolean))]
 
   const filteredRiders = riders.filter(rider => {
     // Vehicle type filter
@@ -47,10 +47,10 @@ function AdminDashboard() {
     if (cityFilter && rider.city !== cityFilter) return false
     
     // PIN code filter
-    if (pinCodeFilter && (rider.pinCode || rider.pin_code) !== pinCodeFilter) return false
+    if (pinCodeFilter && rider.pinCode !== pinCodeFilter) return false
     
     // Segment filter (lead tags)
-    if (segmentFilter && !(rider.leadTags || rider.lead_tags || []).includes(segmentFilter)) return false
+    if (segmentFilter && !(rider.leadTags || []).includes(segmentFilter)) return false
     
     return true
   })
@@ -67,12 +67,12 @@ function AdminDashboard() {
 
   // Calculate segment stats
   const segmentStats = {
-    PERSONAL_INSURANCE_LEAD: riders.filter(r => (r.leadTags || r.lead_tags || []).includes('PERSONAL_INSURANCE_LEAD')).length,
-    BIKE_INSURANCE_LEAD: riders.filter(r => (r.leadTags || r.lead_tags || []).includes('BIKE_INSURANCE_LEAD')).length,
-    EV_SALE_LEAD: riders.filter(r => (r.leadTags || r.lead_tags || []).includes('EV_SALE_LEAD')).length,
-    EV_RENTAL_LEAD: riders.filter(r => (r.leadTags || r.lead_tags || []).includes('EV_RENTAL_LEAD')).length,
-    RETROFIT_LEAD: riders.filter(r => (r.leadTags || r.lead_tags || []).includes('RETROFIT_LEAD')).length,
-    PRODUCT_LEAD: riders.filter(r => (r.leadTags || r.lead_tags || []).includes('PRODUCT_LEAD')).length
+    PERSONAL_INSURANCE_LEAD: riders.filter(r => (r.leadTags || []).includes('PERSONAL_INSURANCE_LEAD')).length,
+    BIKE_INSURANCE_LEAD: riders.filter(r => (r.leadTags || []).includes('BIKE_INSURANCE_LEAD')).length,
+    EV_SALE_LEAD: riders.filter(r => (r.leadTags || []).includes('EV_SALE_LEAD')).length,
+    EV_RENTAL_LEAD: riders.filter(r => (r.leadTags || []).includes('EV_RENTAL_LEAD')).length,
+    RETROFIT_LEAD: riders.filter(r => (r.leadTags || []).includes('RETROFIT_LEAD')).length,
+    PRODUCT_LEAD: riders.filter(r => (r.leadTags || []).includes('PRODUCT_LEAD')).length
   }
 
   if (loading) {
@@ -248,7 +248,7 @@ function AdminDashboard() {
                   <td>{rider.fullName}</td>
                   <td>{rider.whatsapp}</td>
                   <td>{rider.city}</td>
-                  <td>{rider.pinCode || rider.pin_code || '-'}</td>
+                  <td>{rider.pinCode || '-'}</td>
                   <td>
                     <span className={styles.badge}>
                       {rider.vehicleType === 'Electric Two-Wheeler' ? '⚡' : '⛽'} 
@@ -260,14 +260,14 @@ function AdminDashboard() {
                   </td>
                   <td>
                     <div className={styles.tags}>
-                      {(rider.leadTags || rider.lead_tags || []).map((tag, i) => (
+                      {(rider.leadTags || []).map((tag, i) => (
                         <span key={i} className={styles.tag}>{tag.replace(/_/g, ' ')}</span>
                       ))}
                     </div>
                   </td>
                   <td>
-                    <span className={`${styles.followUpBadge} ${styles[rider.followUpStatus || rider.follow_up_status || 'New']}`}>
-                      {rider.followUpStatus || rider.follow_up_status || 'New'}
+                    <span className={`${styles.followUpBadge} ${styles[rider.followUpStatus || 'New']}`}>
+                      {rider.followUpStatus || 'New'}
                     </span>
                   </td>
                   <td><strong>{rider.points || 10}</strong></td>
