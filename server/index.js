@@ -816,79 +816,120 @@ app.get('/api/export/csv', async (req, res) => {
 // WHATSAPP CHATBOT - Interactive Questionnaire
 // ============================================
 
-// WhatsApp conversation flow structure
+// WhatsApp conversation flow structure (WITH CONDITIONAL LOGIC)
 const WHATSAPP_QUESTIONS = {
   en: {
     welcome: "👋 Welcome to Road Warrior!\n\nI'll help you register in just 3 minutes. Let's start!\n\n*What's your full name?*",
     whatsapp: "Great {name}! 📱\n\n*What's your WhatsApp number?* (10 digits)",
     city: "📍 *Which city do you work in?*\n\nType:\n1 - Bangalore\n2 - Mumbai\n3 - Delhi\n4 - Hyderabad\n5 - Pune\n6 - Other",
-    platform: "🛵 *Which platform do you ride for?*\n\nType:\n1 - Swiggy\n2 - Zomato\n3 - Uber Eats\n4 - Amazon\n5 - Dunzo\n6 - Porter\n7 - Other",
+    platform: "🛵 *Which platforms do you ride for?*\n(Type numbers separated by commas, e.g., 1,2,4)\n\n1 - Swiggy\n2 - Zomato\n3 - Uber Eats\n4 - Amazon\n5 - Dunzo\n6 - Porter\n7 - Blinkit\n8 - Other",
     experience: "⏱️ *How many years of delivery experience?*\n\nType:\n1 - Less than 1 year\n2 - 1-3 years\n3 - 3-5 years\n4 - More than 5 years",
     vehicleType: "🏍️ *What vehicle do you use?*\n\nType:\n1 - Electric Two-Wheeler\n2 - Petrol Two-Wheeler\n3 - Four-Wheeler\n4 - Bicycle",
     vehicleBrand: "*What's your vehicle brand?*\n(e.g., Honda, TVS, Ola Electric, Ather)",
+    // CONDITIONAL: EV-specific fuel method
+    fuelMethodEV: "⚡ *Charging Method*\n\nType:\n1 - Home Charging\n2 - Swapping Station\n3 - Public Charging Station\n4 - Other",
+    // CONDITIONAL: Petrol-specific fuel method
+    fuelMethodPetrol: "⛽ *Refueling Method*\n\nType:\n1 - Petrol Pump\n2 - Other",
+    // General fuel method (for other vehicles)
     fuelMethod: "⛽ *How do you refuel/charge?*\n\nType:\n1 - Petrol Pump\n2 - Home Charging\n3 - Swapping Station\n4 - Other",
+    weeklyExpenseEV: "💰 *Weekly charging expense?*\n(in ₹, e.g., 500)",
+    weeklyExpensePetrol: "💰 *Weekly fuel expense?*\n(in ₹, e.g., 500)",
     weeklyExpense: "💰 *Weekly fuel/charging expense?*\n(in ₹, e.g., 500)",
     monthlyMaintenance: "🔧 *Monthly maintenance cost?*\n(in ₹, e.g., 1000)",
+    // CONDITIONAL: EV challenges (filtered - no fuel cost, no refuelling time)
+    challengesEV: "⚠️ *What challenges do you face?*\n(Type numbers separated by commas)\n\n1 - Frequent breakdown\n2 - No nearby charging station\n3 - Battery range anxiety\n4 - Repair costs\n5 - Other",
+    // CONDITIONAL: Petrol challenges (filtered - no charging station, no battery anxiety)
+    challengesPetrol: "⚠️ *What challenges do you face?*\n(Type numbers separated by commas)\n\n1 - High fuel cost\n2 - Frequent breakdown\n3 - Repair costs\n4 - Long refuelling time\n5 - Other",
+    // General challenges (all vehicles)
     challenges: "⚠️ *What challenges do you face?*\n(Type numbers separated by commas)\n\n1 - High fuel cost\n2 - Frequent breakdown\n3 - No nearby charging station\n4 - Battery range anxiety\n5 - Repair costs\n6 - Long refuelling time\n7 - Other",
     evChallenges: "⚡ *Additional EV challenges?*\n(Type numbers separated by commas, or 'skip')\n\n1 - Battery drains too fast\n2 - Swapping station too far\n3 - Long charging time at home\n4 - Vehicle not powerful enough\n5 - Service centre not nearby\n6 - Other",
     petrolChallenges: "🛢️ *Additional Petrol vehicle challenges?*\n(Type numbers separated by commas, or 'skip')\n\n1 - Fuel price too high\n2 - Frequent engine issues\n3 - Pollution fine risk\n4 - High servicing cost\n5 - Other",
     accidentInsurance: "🛡️ *Do you have accident insurance?*\n\nType:\n1 - Yes\n2 - No\n3 - Not sure",
     healthInsurance: "🏥 *Do you have health insurance?*\n\nType:\n1 - Yes\n2 - No\n3 - Not sure",
     paidForAccident: "💸 *Have you paid out-of-pocket for accident/health issues?*\n\nType: yes or no",
-    switchToEV: "⚡ *Would you switch to an electric vehicle?*\n\nType:\n1 - Yes\n2 - No\n3 - Already on EV\n4 - Need more info",
-    switchReasons: "💡 *Why would you switch?*\n(Type numbers separated by commas)\n\n1 - Lower rental cost\n2 - Better battery range\n3 - Swap stations nearby\n4 - Income guarantee\n5 - Employer subsidy\n6 - Other",
-    interested: "📚 *What are you interested in?*\n(Type numbers separated by commas)\n\n1 - EV rental offer\n2 - Insurance quote\n3 - Retrofit information\n4 - All of the above\n5 - None",
+    // CONDITIONAL: Different switch questions for different vehicles
+    switchToEVPetrol: "⚡ *Would you switch to an electric two-wheeler?*\n\nType:\n1 - Yes, interested\n2 - No, happy with current\n3 - Need more info",
+    switchToEVFourWheeler: "⚡ *Would you switch to an electric vehicle?*\n\nType:\n1 - Yes, interested\n2 - No, happy with current\n3 - Need more info",
+    switchToEVBicycle: "⚡ *Would you consider using an electric two-wheeler for deliveries?*\n\nType:\n1 - Yes, considering it\n2 - No, prefer bicycle\n3 - Need more info",
+    switchToEVAlready: "✅ *You're already on an Electric Two-Wheeler!*\n\nGreat choice for the environment and your wallet! 🌱\n\n_Moving to next question..._",
+    switchReasons: "💡 *What would make you switch to EV?*\n(Type numbers separated by commas)\n\n1 - Lower rental cost\n2 - Better battery range\n3 - Swap stations nearby\n4 - Income guarantee\n5 - Employer subsidy\n6 - Other",
+    // CONDITIONAL: Different interests for different vehicles
+    interestedEV: "📚 *What else can we help you with?*\n(Type numbers separated by commas)\n\n1 - Better EV rental offer\n2 - Insurance quote\n3 - Accessories\n4 - All of the above\n5 - None",
+    interestedPetrol: "📚 *What are you interested in?*\n(Type numbers separated by commas)\n\n1 - EV rental offer\n2 - Retrofit information\n3 - Insurance quote\n4 - All of the above\n5 - None",
+    interested: "📚 *What are you interested in?*\n(Type numbers separated by commas)\n\n1 - EV information\n2 - Insurance quote\n3 - Accessories\n4 - All of the above\n5 - None",
     referralCode: "🎁 *Were you referred by someone?*\n\nType their referral code or 'skip'",
-    complete: "🎉 *Registration Complete!*\n\n✅ Your Referral Code: *{code}*\n💎 Points: 10\n\n📲 *Getting your QR code...*",
-    qrCode: "📱 *Your QR Code:*\n\n{qrImage}\n\n🖨️ *Share this QR code:*\n• Print and put at petrol pumps\n• Share in rider WhatsApp groups\n• Show to other delivery riders\n\n🏆 *Earn Rewards:*\n• 10 referrals = +100 points\n• 25 referrals = +300 points\n• 50 referrals = +500 points + Lucky Draw\n\n⚡ Thank you for joining Road Warrior!"
+    complete: "🎉 *Registration Complete!*\n\n✅ Referral Code: *{code}*\n💎 Points: 10\n\n📎 *Your Referral Link:*\n{link}\n\n📲 Share this link with friends!\nWhen they click it, your code is auto-filled.\n\n🏆 *Earn Rewards:*\n• 10 referrals = +100 points\n• 25 referrals = +300 points\n• 50 referrals = +500 points + Lucky Draw\n\n⚡ Getting your QR code...",
+    qrCode: "📱 *Your QR Code:*\n\n{qrImage}\n\n🖨️ *Share this QR code:*\n• Print and put at petrol pumps\n• Share in rider WhatsApp groups\n• Show to other delivery riders\n\n💡 *Or share your referral link* (easier!):\n{link}\n\n⚡ Thank you for joining Road Warrior!"
   },
   hi: {
     welcome: "👋 रोड वॉरियर में आपका स्वागत है!\n\nमैं आपको 3 मिनट में रजिस्टर करने में मदद करूंगा। चलिए शुरू करते हैं!\n\n*आपका पूरा नाम क्या है?*",
     whatsapp: "बहुत बढ़िया {name}! 📱\n\n*आपका व्हाट्सएप नंबर क्या है?* (10 अंक)",
     city: "📍 *आप किस शहर में काम करते हैं?*\n\nटाइप करें:\n1 - बैंगलोर\n2 - मुंबई\n3 - दिल्ली\n4 - हैदराबाद\n5 - पुणे\n6 - अन्य",
-    platform: "🛵 *आप किस प्लेटफ़ॉर्म के लिए राइड करते हैं?*\n\nटाइप करें:\n1 - स्विगी\n2 - ज़ोमैटो\n3 - उबर ईट्स\n4 - अमेज़न\n5 - डन्ज़ो\n6 - पोर्टर\n7 - अन्य",
+    platform: "🛵 *आप किन प्लेटफ़ॉर्म के लिए राइड करते हैं?*\n(नंबर कॉमा से अलग करें, जैसे 1,2,4)\n\n1 - स्विगी\n2 - ज़ोमैटो\n3 - उबर ईट्स\n4 - अमेज़न\n5 - डन्ज़ो\n6 - पोर्टर\n7 - ब्लिंकिट\n8 - अन्य",
     experience: "⏱️ *कितने साल का डिलीवरी अनुभव?*\n\nटाइप करें:\n1 - 1 साल से कम\n2 - 1-3 साल\n3 - 3-5 साल\n4 - 5 साल से अधिक",
     vehicleType: "🏍️ *आप कौन सा वाहन उपयोग करते हैं?*\n\nटाइप करें:\n1 - इलेक्ट्रिक टू-व्हीलर\n2 - पेट्रोल टू-व्हीलर\n3 - फोर-व्हीलर\n4 - साइकिल",
     vehicleBrand: "*आपके वाहन का ब्रांड?*\n(जैसे Honda, TVS, Ola Electric, Ather)",
+    fuelMethodEV: "⚡ *चार्जिंग विधि*\n\nटाइप करें:\n1 - घर पर चार्जिंग\n2 - स्वैपिंग स्टेशन\n3 - पब्लिक चार्जिंग स्टेशन\n4 - अन्य",
+    fuelMethodPetrol: "⛽ *रीफ्यूलिंग विधि*\n\nटाइप करें:\n1 - पेट्रोल पंप\n2 - अन्य",
     fuelMethod: "⛽ *आप कैसे रीफ्यूल/चार्ज करते हैं?*\n\nटाइप करें:\n1 - पेट्रोल पंप\n2 - घर पर चार्जिंग\n3 - स्वैपिंग स्टेशन\n4 - अन्य",
+    weeklyExpenseEV: "💰 *साप्ताहिक चार्जिंग खर्च?*\n(₹ में, जैसे 500)",
+    weeklyExpensePetrol: "💰 *साप्ताहिक ईंधन खर्च?*\n(₹ में, जैसे 500)",
     weeklyExpense: "💰 *साप्ताहिक ईंधन/चार्जिंग खर्च?*\n(₹ में, जैसे 500)",
     monthlyMaintenance: "🔧 *मासिक रखरखाव लागत?*\n(₹ में, जैसे 1000)",
-    challenges: "⚠️ *आपको क्या चुनौतियाँ हैं?*\n(नंबर कॉमा से अलग करके टाइप करें)\n\n1 - महंगा ईंधन\n2 - बार-बार खराबी\n3 - पास में चार्जिंग नहीं\n4 - बैटरी रेंज की चिंता\n5 - मरम्मत की लागत\n6 - रीफ्यूल में समय\n7 - अन्य",
+    challengesEV: "⚠️ *आपको क्या चुनौतियाँ हैं?*\n(नंबर कॉमा से अलग करें)\n\n1 - बार-बार खराबी\n2 - पास में चार्जिंग नहीं\n3 - बैटरी रेंज की चिंता\n4 - मरम्मत की लागत\n5 - अन्य",
+    challengesPetrol: "⚠️ *आपको क्या चुनौतियाँ हैं?*\n(नंबर कॉमा से अलग करें)\n\n1 - महंगा ईंधन\n2 - बार-बार खराबी\n3 - मरम्मत की लागत\n4 - रीफ्यूल में समय\n5 - अन्य",
+    challenges: "⚠️ *आपको क्या चुनौतियाँ हैं?*\n(नंबर कॉमा से अलग करें)\n\n1 - महंगा ईंधन\n2 - बार-बार खराबी\n3 - पास में चार्जिंग नहीं\n4 - बैटरी रेंज की चिंता\n5 - मरम्मत की लागत\n6 - रीफ्यूल में समय\n7 - अन्य",
     evChallenges: "⚡ *अतिरिक्त EV चुनौतियाँ?*\n(नंबर कॉमा से अलग करें, या 'skip' लिखें)\n\n1 - बैटरी जल्दी खत्म\n2 - स्वैपिंग स्टेशन दूर\n3 - घर पर चार्जिंग में समय\n4 - वाहन पावरफुल नहीं\n5 - सर्विस सेंटर दूर\n6 - अन्य",
     petrolChallenges: "🛢️ *अतिरिक्त पेट्रोल वाहन चुनौतियाँ?*\n(नंबर कॉमा से अलग करें, या 'skip' लिखें)\n\n1 - ईंधन की कीमत ज्यादा\n2 - इंजन में समस्या\n3 - प्रदूषण जुर्माना\n4 - सर्विसिंग महंगी\n5 - अन्य",
     accidentInsurance: "🛡️ *क्या आपके पास दुर्घटना बीमा है?*\n\nटाइप करें:\n1 - हां\n2 - नहीं\n3 - पता नहीं",
     healthInsurance: "🏥 *क्या आपके पास स्वास्थ्य बीमा है?*\n\nटाइप करें:\n1 - हां\n2 - नहीं\n3 - पता नहीं",
     paidForAccident: "💸 *क्या आपने दुर्घटना/स्वास्थ्य के लिए जेब से पैसे दिए हैं?*\n\nटाइप करें: yes या no",
-    switchToEV: "⚡ *क्या आप इलेक्ट्रिक वाहन में स्विच करेंगे?*\n\nटाइप करें:\n1 - हां\n2 - नहीं\n3 - पहले से EV पर हूं\n4 - और जानकारी चाहिए",
+    switchToEVPetrol: "⚡ *क्या आप इलेक्ट्रिक टू-व्हीलर में स्विच करेंगे?*\n\nटाइप करें:\n1 - हां, इच्छुक हूं\n2 - नहीं, खुश हूं\n3 - और जानकारी चाहिए",
+    switchToEVFourWheeler: "⚡ *क्या आप इलेक्ट्रिक वाहन में स्विच करेंगे?*\n\nटाइप करें:\n1 - हां, इच्छुक हूं\n2 - नहीं, खुश हूं\n3 - और जानकारी चाहिए",
+    switchToEVBicycle: "⚡ *क्या आप डिलीवरी के लिए इलेक्ट्रिक टू-व्हीलर इस्तेमाल करना चाहेंगे?*\n\nटाइप करें:\n1 - हां, सोच रहा हूं\n2 - नहीं, साइकिल पसंद है\n3 - और जानकारी चाहिए",
+    switchToEVAlready: "✅ *आप पहले से इलेक्ट्रिक टू-व्हीलर पर हैं!*\n\nपर्यावरण और आपकी जेब के लिए बढ़िया विकल्प! 🌱\n\n_अगले सवाल पर जा रहे हैं..._",
     switchReasons: "💡 *आप क्यों स्विच करेंगे?*\n(नंबर कॉमा से अलग करें)\n\n1 - कम किराया\n2 - बेहतर बैटरी रेंज\n3 - पास में स्वैप स्टेशन\n4 - आय की गारंटी\n5 - नियोक्ता सब्सिडी\n6 - अन्य",
-    interested: "📚 *आप किसमें रुचि रखते हैं?*\n(नंबर कॉमा से अलग करें)\n\n1 - EV किराया ऑफर\n2 - बीमा कोट\n3 - रेट्रोफिट जानकारी\n4 - सब कुछ\n5 - कुछ नहीं",
+    interestedEV: "📚 *हम और कैसे मदद कर सकते हैं?*\n(नंबर कॉमा से अलग करें)\n\n1 - बेहतर EV किराया ऑफर\n2 - बीमा कोट\n3 - एक्सेसरीज\n4 - सब कुछ\n5 - कुछ नहीं",
+    interestedPetrol: "📚 *आप किसमें रुचि रखते हैं?*\n(नंबर कॉमा से अलग करें)\n\n1 - EV किराया ऑफर\n2 - रेट्रोफिट जानकारी\n3 - बीमा कोट\n4 - सब कुछ\n5 - कुछ नहीं",
+    interested: "📚 *आप किसमें रुचि रखते हैं?*\n(नंबर कॉमा से अलग करें)\n\n1 - EV जानकारी\n2 - बीमा कोट\n3 - एक्सेसरीज\n4 - सब कुछ\n5 - कुछ नहीं",
     referralCode: "🎁 *क्या किसी ने आपको रेफर किया?*\n\nउनका रेफरल कोड टाइप करें या 'skip' लिखें",
-    complete: "🎉 *रजिस्ट्रेशन पूरा हुआ!*\n\n✅ आपका रेफरल कोड: *{code}*\n💎 पॉइंट्स: 10\n\n📲 *आपका QR कोड आ रहा है...*",
-    qrCode: "📱 *आपका QR कोड:*\n\n{qrImage}\n\n🖨️ *यह QR कोड शेयर करें:*\n• प्रिंट करके पेट्रोल पंप पर लगाएं\n• राइडर व्हाट्सएप ग्रुप में शेयर करें\n• अन्य डिलीवरी राइडर्स को दिखाएं\n\n🏆 *इनाम पाएं:*\n• 10 रेफरल = +100 पॉइंट्स\n• 25 रेफरल = +300 पॉइंट्स\n• 50 रेफरल = +500 पॉइंट्स + लकी ड्रा\n\n⚡ रोड वॉरियर में शामिल होने के लिए धन्यवाद!"
+    complete: "🎉 *रजिस्ट्रेशन पूरा हुआ!*\n\n✅ रेफरल कोड: *{code}*\n💎 पॉइंट्स: 10\n\n📎 *आपका रेफरल लिंक:*\n{link}\n\n📲 दोस्तों के साथ यह लिंक शेयर करें!\nजब वे क्लिक करेंगे, आपका कोड ऑटो-भरा होगा।\n\n🏆 *इनाम पाएं:*\n• 10 रेफरल = +100 पॉइंट्स\n• 25 रेफरल = +300 पॉइंट्स\n• 50 रेफरल = +500 पॉइंट्स + लकी ड्रा\n\n⚡ आपका QR कोड आ रहा है...",
+    qrCode: "📱 *आपका QR कोड:*\n\n{qrImage}\n\n🖨️ *यह QR कोड शेयर करें:*\n• प्रिंट करके पेट्रोल पंप पर लगाएं\n• राइडर व्हाट्सएप ग्रुप में शेयर करें\n• अन्य डिलीवरी राइडर्स को दिखाएं\n\n💡 *या अपना रेफरल लिंक शेयर करें* (आसान!):\n{link}\n\n⚡ रोड वॉरियर में शामिल होने के लिए धन्यवाद!"
   },
   kn: {
     welcome: "👋 ರೋಡ್ ವಾರಿಯರ್‌ಗೆ ಸ್ವಾಗತ!\n\nನಾನು 3 ನಿಮಿಷಗಳಲ್ಲಿ ನಿಮ್ಮನ್ನು ನೋಂದಾಯಿಸಲು ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ಪ್ರಾರಂಭಿಸೋಣ!\n\n*ನಿಮ್ಮ ಪೂರ್ಣ ಹೆಸರು ಏನು?*",
     whatsapp: "ಅದ್ಭುತ {name}! 📱\n\n*ನಿಮ್ಮ ವಾಟ್ಸಾಪ್ ನಂಬರ್ ಏನು?* (10 ಅಂಕೆಗಳು)",
     city: "📍 *ನೀವು ಯಾವ ನಗರದಲ್ಲಿ ಕೆಲಸ ಮಾಡುತ್ತೀರಿ?*\n\nಟೈಪ್ ಮಾಡಿ:\n1 - ಬೆಂಗಳೂರು\n2 - ಮುಂಬೈ\n3 - ದೆಹಲಿ\n4 - ಹೈದರಾಬಾದ್\n5 - ಪುಣೆ\n6 - ಇತರೆ",
-    platform: "🛵 *ನೀವು ಯಾವ ಪ್ಲಾಟ್‌ಫಾರ್ಮ್‌ಗಾಗಿ ರೈಡ್ ಮಾಡುತ್ತೀರಿ?*\n\nಟೈಪ್ ಮಾಡಿ:\n1 - ಸ್ವಿಗ್ಗಿ\n2 - ಝೊಮಾಟೊ\n3 - ಉಬರ್ ಈಟ್ಸ್\n4 - ಆಮೆಜಾನ್\n5 - ಡನ್ಜೊ\n6 - ಪೋರ್ಟರ್\n7 - ಇತರೆ",
+    platform: "🛵 *ನೀವು ಯಾವ ಪ್ಲಾಟ್‌ಫಾರ್ಮ್‌ಗಳಿಗಾಗಿ ರೈಡ್ ಮಾಡುತ್ತೀರಿ?*\n(ಕಾಮಾದಿಂದ ಬೇರ್ಪಡಿಸಿ ಸಂಖ್ಯೆಗಳನ್ನು, ಉದಾ: 1,2,4)\n\n1 - ಸ್ವಿಗ್ಗಿ\n2 - ಝೊಮಾಟೊ\n3 - ಉಬರ್ ಈಟ್ಸ್\n4 - ಆಮೆಜಾನ್\n5 - ಡನ್ಜೊ\n6 - ಪೋರ್ಟರ್\n7 - ಬ್ಲಿಂಕಿಟ್\n8 - ಇತರೆ",
     experience: "⏱️ *ಎಷ್ಟು ವರ್ಷಗಳ ಡೆಲಿವರಿ ಅನುಭವ?*\n\nಟೈಪ್ ಮಾಡಿ:\n1 - 1 ವರ್ಷಕ್ಕಿಂತ ಕಡಿಮೆ\n2 - 1-3 ವರ್ಷಗಳು\n3 - 3-5 ವರ್ಷಗಳು\n4 - 5 ವರ್ಷಗಳಿಗಿಂತ ಹೆಚ್ಚು",
     vehicleType: "🏍️ *ನೀವು ಯಾವ ವಾಹನವನ್ನು ಬಳಸುತ್ತೀರಿ?*\n\nಟೈಪ್ ಮಾಡಿ:\n1 - ಎಲೆಕ್ಟ್ರಿಕ್ ಟು-ವೀಲರ್\n2 - ಪೆಟ್ರೋಲ್ ಟು-ವೀಲರ್\n3 - ಫೋರ್-ವೀಲರ್\n4 - ಸೈಕಲ್",
     vehicleBrand: "*ನಿಮ್ಮ ವಾಹನದ ಬ್ರಾಂಡ್ ಏನು?*\n(ಉದಾ: Honda, TVS, Ola Electric, Ather)",
+    fuelMethodEV: "⚡ *ಚಾರ್ಜಿಂಗ್ ವಿಧಾನ*\n\nಟೈಪ್ ಮಾಡಿ:\n1 - ಮನೆಯಲ್ಲಿ ಚಾರ್ಜಿಂಗ್\n2 - ಸ್ವಾಪಿಂಗ್ ಸ್ಟೇಷನ್\n3 - ಸಾರ್ವಜನಿಕ ಚಾರ್ಜಿಂಗ್ ಸ್ಟೇಷನ್\n4 - ಇತರೆ",
+    fuelMethodPetrol: "⛽ *ಇಂಧನ ತುಂಬುವ ವಿಧಾನ*\n\nಟೈಪ್ ಮಾಡಿ:\n1 - ಪೆಟ್ರೋಲ್ ಪಂಪ್\n2 - ಇತರೆ",
     fuelMethod: "⛽ *ನೀವು ಹೇಗೆ ಇಂಧನ/ಚಾರ್ಜ್ ಮಾಡುತ್ತೀರಿ?*\n\nಟೈಪ್ ಮಾಡಿ:\n1 - ಪೆಟ್ರೋಲ್ ಪಂಪ್\n2 - ಮನೆಯಲ್ಲಿ ಚಾರ್ಜಿಂಗ್\n3 - ಸ್ವಾಪಿಂಗ್ ಸ್ಟೇಷನ್\n4 - ಇತರೆ",
+    weeklyExpenseEV: "💰 *ವಾರದ ಚಾರ್ಜಿಂಗ್ ಖರ್ಚು?*\n(₹ನಲ್ಲಿ, ಉದಾ: 500)",
+    weeklyExpensePetrol: "💰 *ವಾರದ ಇಂಧನ ಖರ್ಚು?*\n(₹ನಲ್ಲಿ, ಉದಾ: 500)",
     weeklyExpense: "💰 *ವಾರದ ಇಂಧನ/ಚಾರ್ಜಿಂಗ್ ಖರ್ಚು?*\n(₹ನಲ್ಲಿ, ಉದಾ: 500)",
     monthlyMaintenance: "🔧 *ತಿಂಗಳ ನಿರ್ವಹಣೆ ವೆಚ್ಚ?*\n(₹ನಲ್ಲಿ, ಉದಾ: 1000)",
-    challenges: "⚠️ *ನೀವು ಯಾವ ಸವಾಲುಗಳನ್ನು ಎದುರಿಸುತ್ತೀರಿ?*\n(ಕಾಮಾದಿಂದ ಬೇರ್ಪಡಿಸಿ ಸಂಖ್ಯೆಗಳನ್ನು ಟೈಪ್ ಮಾಡಿ)\n\n1 - ಹೆಚ್ಚಿನ ಇಂಧನ ವೆಚ್ಚ\n2 - ಆಗಾಗ್ಗೆ ಹಾನಿ\n3 - ಹತ್ತಿರ ಚಾರ್ಜಿಂಗ್ ಇಲ್ಲ\n4 - ಬ್ಯಾಟರಿ ರೇಂಜ್ ಚಿಂತೆ\n5 - ದುರಸ್ತಿ ವೆಚ್ಚ\n6 - ಇಂಧನ ತುಂಬಲು ಸಮಯ\n7 - ಇತರೆ",
+    challengesEV: "⚠️ *ನೀವು ಯಾವ ಸವಾಲುಗಳನ್ನು ಎದುರಿಸುತ್ತೀರಿ?*\n(ಕಾಮಾದಿಂದ ಬೇರ್ಪಡಿಸಿ ಸಂಖ್ಯೆಗಳನ್ನು)\n\n1 - ಆಗಾಗ್ಗೆ ಹಾನಿ\n2 - ಹತ್ತಿರ ಚಾರ್ಜಿಂಗ್ ಇಲ್ಲ\n3 - ಬ್ಯಾಟರಿ ರೇಂಜ್ ಚಿಂತೆ\n4 - ದುರಸ್ತಿ ವೆಚ್ಚ\n5 - ಇತರೆ",
+    challengesPetrol: "⚠️ *ನೀವು ಯಾವ ಸವಾಲುಗಳನ್ನು ಎದುರಿಸುತ್ತೀರಿ?*\n(ಕಾಮಾದಿಂದ ಬೇರ್ಪಡಿಸಿ ಸಂಖ್ಯೆಗಳನ್ನು)\n\n1 - ಹೆಚ್ಚಿನ ಇಂಧನ ವೆಚ್ಚ\n2 - ಆಗಾಗ್ಗೆ ಹಾನಿ\n3 - ದುರಸ್ತಿ ವೆಚ್ಚ\n4 - ಇಂಧನ ತುಂಬಲು ಸಮಯ\n5 - ಇತರೆ",
+    challenges: "⚠️ *ನೀವು ಯಾವ ಸವಾಲುಗಳನ್ನು ಎದುರಿಸುತ್ತೀರಿ?*\n(ಕಾಮಾದಿಂದ ಬೇರ್ಪಡಿಸಿ ಸಂಖ್ಯೆಗಳನ್ನು)\n\n1 - ಹೆಚ್ಚಿನ ಇಂಧನ ವೆಚ್ಚ\n2 - ಆಗಾಗ್ಗೆ ಹಾನಿ\n3 - ಹತ್ತಿರ ಚಾರ್ಜಿಂಗ್ ಇಲ್ಲ\n4 - ಬ್ಯಾಟರಿ ರೇಂಜ್ ಚಿಂತೆ\n5 - ದುರಸ್ತಿ ವೆಚ್ಚ\n6 - ಇಂಧನ ತುಂಬಲು ಸಮಯ\n7 - ಇತರೆ",
     evChallenges: "⚡ *ಹೆಚ್ಚುವರಿ EV ಸವಾಲುಗಳು?*\n(ಕಾಮಾದಿಂದ ಬೇರ್ಪಡಿಸಿ, ಅಥವಾ 'skip' ಎಂದು ಬರೆಯಿರಿ)\n\n1 - ಬ್ಯಾಟರಿ ಬೇಗ ಖಾಲಿ\n2 - ಸ್ವಾಪಿಂಗ್ ಸ್ಟೇಷನ್ ದೂರ\n3 - ಮನೆಯಲ್ಲಿ ಚಾರ್ಜಿಂಗ್ ಸಮಯ\n4 - ವಾಹನ ಶಕ್ತಿಯುತವಲ್ಲ\n5 - ಸೇವಾ ಕೇಂದ್ರ ದೂರ\n6 - ಇತರೆ",
     petrolChallenges: "🛢️ *ಹೆಚ್ಚುವರಿ ಪೆಟ್ರೋಲ್ ವಾಹನ ಸವಾಲುಗಳು?*\n(ಕಾಮಾದಿಂದ ಬೇರ್ಪಡಿಸಿ, ಅಥವಾ 'skip' ಎಂದು ಬರೆಯಿರಿ)\n\n1 - ಇಂಧನ ಬೆಲೆ ಹೆಚ್ಚು\n2 - ಆಗಾಗ್ಗೆ ಎಂಜಿನ್ ಸಮಸ್ಯೆ\n3 - ಮಾಲಿನ್ಯ ದಂಡ\n4 - ಸರ್ವಿಸಿಂಗ್ ದುಬಾರಿ\n5 - ಇತರೆ",
     accidentInsurance: "🛡️ *ನಿಮ್ಮ ಬಳಿ ಅಪಘಾತ ವಿಮೆ ಇದೆಯೇ?*\n\nಟೈಪ್ ಮಾಡಿ:\n1 - ಹೌದು\n2 - ಇಲ್ಲ\n3 - ಖಚಿತವಿಲ್ಲ",
     healthInsurance: "🏥 *ನಿಮ್ಮ ಬಳಿ ಆರೋಗ್ಯ ವಿಮೆ ಇದೆಯೇ?*\n\nಟೈಪ್ ಮಾಡಿ:\n1 - ಹೌದು\n2 - ಇಲ್ಲ\n3 - ಖಚಿತವಿಲ್ಲ",
     paidForAccident: "💸 *ಅಪಘಾತ/ಆರೋಗ್ಯ ಸಮಸ್ಯೆಗಳಿಗೆ ನೀವು ಜೇಬಿನಿಂದ ಪಾವತಿಸಿದ್ದೀರಾ?*\n\nಟೈಪ್ ಮಾಡಿ: yes ಅಥವಾ no",
-    switchToEV: "⚡ *ನೀವು ಎಲೆಕ್ಟ್ರಿಕ್ ವಾಹನಕ್ಕೆ ಬದಲಾಯಿಸುತ್ತೀರಾ?*\n\nಟೈಪ್ ಮಾಡಿ:\n1 - ಹೌದು\n2 - ಇಲ್ಲ\n3 - ಈಗಾಗಲೇ EV ಬಳಸುತ್ತಿದ್ದೇನೆ\n4 - ಹೆಚ್ಚಿನ ಮಾಹಿತಿ ಬೇಕು",
-    switchReasons: "💡 *ನೀವು ಏಕೆ ಬದಲಾಯಿಸುತ್ತೀರಿ?*\n(ಕಾಮಾದಿಂದ ಬೇರ್ಪಡಿಸಿ ಸಂಖ್ಯೆಗಳನ್ನು ಟೈಪ್ ಮಾಡಿ)\n\n1 - ಕಡಿಮೆ ಬಾಡಿಗೆ ವೆಚ್ಚ\n2 - ಉತ್ತಮ ಬ್ಯಾಟರಿ ರೇಂಜ್\n3 - ಹತ್ತಿರ ಸ್ವಾಪ್ ಸ್ಟೇಷನ್\n4 - ಆದಾಯದ ಭರವಸೆ\n5 - ಉದ್ಯೋಗದಾತ ಸಬ್ಸಿಡಿ\n6 - ಇತರೆ",
-    interested: "📚 *ನೀವು ಯಾವುದರಲ್ಲಿ ಆಸಕ್ತಿ ಹೊಂದಿದ್ದೀರಿ?*\n(ಕಾಮಾದಿಂದ ಬೇರ್ಪಡಿಸಿ ಸಂಖ್ಯೆಗಳನ್ನು ಟೈಪ್ ಮಾಡಿ)\n\n1 - EV ಬಾಡಿಗೆ ಆಫರ್\n2 - ವಿಮೆ ಕೋಟ್\n3 - ರೆಟ್ರೋಫಿಟ್ ಮಾಹಿತಿ\n4 - ಎಲ್ಲಾ\n5 - ಯಾವುದೂ ಇಲ್ಲ",
+    switchToEVPetrol: "⚡ *ನೀವು ಎಲೆಕ್ಟ್ರಿಕ್ ಟು-ವೀಲರ್‌ಗೆ ಬದಲಾಯಿಸುತ್ತೀರಾ?*\n\nಟೈಪ್ ಮಾಡಿ:\n1 - ಹೌದು, ಆಸಕ್ತಿ ಇದೆ\n2 - ಇಲ್ಲ, ಸಂತೋಷವಾಗಿದೆ\n3 - ಹೆಚ್ಚಿನ ಮಾಹಿತಿ ಬೇಕು",
+    switchToEVFourWheeler: "⚡ *ನೀವು ಎಲೆಕ್ಟ್ರಿಕ್ ವಾಹನಕ್ಕೆ ಬದಲಾಯಿಸುತ್ತೀರಾ?*\n\nಟೈಪ್ ಮಾಡಿ:\n1 - ಹೌದು, ಆಸಕ್ತಿ ಇದೆ\n2 - ಇಲ್ಲ, ಸಂತೋಷವಾಗಿದೆ\n3 - ಹೆಚ್ಚಿನ ಮಾಹಿತಿ ಬೇಕು",
+    switchToEVBicycle: "⚡ *ಡೆಲಿವರಿಗಾಗಿ ಎಲೆಕ್ಟ್ರಿಕ್ ಟು-ವೀಲರ್ ಬಳಸಲು ಪರಿಗಣಿಸುತ್ತೀರಾ?*\n\nಟೈಪ್ ಮಾಡಿ:\n1 - ಹೌದು, ಆಲೋಚನೆ ಮಾಡುತ್ತಿದ್ದೇನೆ\n2 - ಇಲ್ಲ, ಸೈಕಲ್ ಇಷ್ಟ\n3 - ಹೆಚ್ಚಿನ ಮಾಹಿತಿ ಬೇಕು",
+    switchToEVAlready: "✅ *ನೀವು ಈಗಾಗಲೇ ಎಲೆಕ್ಟ್ರಿಕ್ ಟು-ವೀಲರ್‌ನಲ್ಲಿದ್ದೀರಿ!*\n\nಪರಿಸರ ಮತ್ತು ನಿಮ್ಮ ಜೇಬಿಗೆ ಉತ್ತಮ ಆಯ್ಕೆ! 🌱\n\n_ಮುಂದಿನ ಪ್ರಶ್ನೆಗೆ ಹೋಗುತ್ತಿದೆ..._",
+    switchReasons: "💡 *ನೀವು ಏಕೆ ಬದಲಾಯಿಸುತ್ತೀರಿ?*\n(ಕಾಮಾದಿಂದ ಬೇರ್ಪಡಿಸಿ ಸಂಖ್ಯೆಗಳನ್ನು)\n\n1 - ಕಡಿಮೆ ಬಾಡಿಗೆ ವೆಚ್ಚ\n2 - ಉತ್ತಮ ಬ್ಯಾಟರಿ ರೇಂಜ್\n3 - ಹತ್ತಿರ ಸ್ವಾಪ್ ಸ್ಟೇಷನ್\n4 - ಆದಾಯದ ಭರವಸೆ\n5 - ಉದ್ಯೋಗದಾತ ಸಬ್ಸಿಡಿ\n6 - ಇತರೆ",
+    interestedEV: "📚 *ನಾವು ಇನ್ನೇನು ಸಹಾಯ ಮಾಡಬಹುದು?*\n(ಕಾಮಾದಿಂದ ಬೇರ್ಪಡಿಸಿ ಸಂಖ್ಯೆಗಳನ್ನು)\n\n1 - ಉತ್ತಮ EV ಬಾಡಿಗೆ ಆಫರ್\n2 - ವಿಮೆ ಕೋಟ್\n3 - ಆಕ್ಸೆಸರಿಗಳು\n4 - ಎಲ್ಲಾ\n5 - ಯಾವುದೂ ಇಲ್ಲ",
+    interestedPetrol: "📚 *ನೀವು ಯಾವುದರಲ್ಲಿ ಆಸಕ್ತಿ ಹೊಂದಿದ್ದೀರಿ?*\n(ಕಾಮಾದಿಂದ ಬೇರ್ಪಡಿಸಿ ಸಂಖ್ಯೆಗಳನ್ನು)\n\n1 - EV ಬಾಡಿಗೆ ಆಫರ್\n2 - ರೆಟ್ರೋಫಿಟ್ ಮಾಹಿತಿ\n3 - ವಿಮೆ ಕೋಟ್\n4 - ಎಲ್ಲಾ\n5 - ಯಾವುದೂ ಇಲ್ಲ",
+    interested: "📚 *ನೀವು ಯಾವುದರಲ್ಲಿ ಆಸಕ್ತಿ ಹೊಂದಿದ್ದೀರಿ?*\n(ಕಾಮಾದಿಂದ ಬೇರ್ಪಡಿಸಿ ಸಂಖ್ಯೆಗಳನ್ನು)\n\n1 - EV ಮಾಹಿತಿ\n2 - ವಿಮೆ ಕೋಟ್\n3 - ಆಕ್ಸೆಸರಿಗಳು\n4 - ಎಲ್ಲಾ\n5 - ಯಾವುದೂ ಇಲ್ಲ",
     referralCode: "🎁 *ಯಾರಾದರೂ ನಿಮ್ಮನ್ನು ರೆಫರ್ ಮಾಡಿದ್ದಾರೆಯೇ?*\n\nಅವರ ರೆಫರಲ್ ಕೋಡ್ ಟೈಪ್ ಮಾಡಿ ಅಥವಾ 'skip' ಎಂದು ಬರೆಯಿರಿ",
-    complete: "🎉 *ನೋಂದಣಿ ಪೂರ್ಣಗೊಂಡಿದೆ!*\n\n✅ ನಿಮ್ಮ ರೆಫರಲ್ ಕೋಡ್: *{code}*\n💎 ಪಾಯಿಂಟ್ಸ್: 10\n\n📲 *ನಿಮ್ಮ QR ಕೋಡ್ ಬರುತ್ತಿದೆ...*",
-    qrCode: "📱 *ನಿಮ್ಮ QR ಕೋಡ್:*\n\n{qrImage}\n\n🖨️ *ಈ QR ಕೋಡ್ ಹಂಚಿಕೊಳ್ಳಿ:*\n• ಪ್ರಿಂಟ್ ಮಾಡಿ ಪೆಟ್ರೋಲ್ ಪಂಪ್‌ನಲ್ಲಿ ಇರಿಸಿ\n• ರೈಡರ್ ವಾಟ್ಸಾಪ್ ಗ್ರೂಪ್‌ಗಳಲ್ಲಿ ಹಂಚಿಕೊಳ್ಳಿ\n• ಇತರ ಡೆಲಿವರಿ ರೈಡರ್‌ಗಳಿಗೆ ತೋರಿಸಿ\n\n🏆 *ಬಹುಮಾನಗಳನ್ನು ಗಳಿಸಿ:*\n• 10 ರೆಫರಲ್ಸ್ = +100 ಪಾಯಿಂಟ್ಸ್\n• 25 ರೆಫರಲ್ಸ್ = +300 ಪಾಯಿಂಟ್ಸ್\n• 50 ರೆಫರಲ್ಸ್ = +500 ಪಾಯಿಂಟ್ಸ್ + ಲಕ್ಕಿ ಡ್ರಾ\n\n⚡ ರೋಡ್ ವಾರಿಯರ್‌ಗೆ ಸೇರಿದ್ದಕ್ಕಾಗಿ ಧನ್ಯವಾದಗಳು!"
+    complete: "🎉 *ನೋಂದಣಿ ಪೂರ್ಣಗೊಂಡಿದೆ!*\n\n✅ ರೆಫರಲ್ ಕೋಡ್: *{code}*\n💎 ಪಾಯಿಂಟ್ಸ್: 10\n\n📎 *ನಿಮ್ಮ ರೆಫರಲ್ ಲಿಂಕ್:*\n{link}\n\n📲 ಸ್ನೇಹಿತರೊಂದಿಗೆ ಈ ಲಿಂಕ್ ಹಂಚಿಕೊಳ್ಳಿ!\nಅವರು ಕ್ಲಿಕ್ ಮಾಡಿದಾಗ, ನಿಮ್ಮ ಕೋಡ್ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ತುಂಬುತ್ತದೆ.\n\n🏆 *ಬಹುಮಾನಗಳನ್ನು ಗಳಿಸಿ:*\n• 10 ರೆಫರಲ್ಸ್ = +100 ಪಾಯಿಂಟ್ಸ್\n• 25 ರೆಫರಲ್ಸ್ = +300 ಪಾಯಿಂಟ್ಸ್\n• 50 ರೆಫರಲ್ಸ್ = +500 ಪಾಯಿಂಟ್ಸ್ + ಲಕ್ಕಿ ಡ್ರಾ\n\n⚡ ನಿಮ್ಮ QR ಕೋಡ್ ಬರುತ್ತಿದೆ...",
+    qrCode: "📱 *ನಿಮ್ಮ QR ಕೋಡ್:*\n\n{qrImage}\n\n🖨️ *ಈ QR ಕೋಡ್ ಹಂಚಿಕೊಳ್ಳಿ:*\n• ಪ್ರಿಂಟ್ ಮಾಡಿ ಪೆಟ್ರೋಲ್ ಪಂಪ್‌ನಲ್ಲಿ ಇರಿಸಿ\n• ರೈಡರ್ ವಾಟ್ಸಾಪ್ ಗ್ರೂಪ್‌ಗಳಲ್ಲಿ ಹಂಚಿಕೊಳ್ಳಿ\n• ಇತರ ಡೆಲಿವರಿ ರೈಡರ್‌ಗಳಿಗೆ ತೋರಿಸಿ\n\n💡 *ಅಥವಾ ನಿಮ್ಮ ರೆಫರಲ್ ಲಿಂಕ್ ಹಂಚಿಕೊಳ್ಳಿ* (ಸುಲಭ!):\n{link}\n\n⚡ ರೋಡ್ ವಾರಿಯರ್‌ಗೆ ಸೇರಿದ್ದಕ್ಕಾಗಿ ಧನ್ಯವಾದಗಳು!"
   }
 }
 
@@ -960,10 +1001,19 @@ function processWhatsAppResponse(session, message) {
     return questions.platform
   }
 
-  // Platform
+  // Platform (UPDATED: Multi-select support)
   if (step === 'platform') {
-    const platformMap = { '1': 'Swiggy', '2': 'Zomato', '3': 'Uber Eats', '4': 'Amazon', '5': 'Dunzo', '6': 'Porter', '7': 'Other' }
-    session.data.platform = platformMap[text] || text
+    const platformMap = { 
+      '1': 'Swiggy', '2': 'Zomato', '3': 'Uber Eats', '4': 'Amazon', 
+      '5': 'Dunzo', '6': 'Porter', '7': 'Blinkit', '8': 'Other' 
+    }
+    // Handle comma-separated input
+    const numbers = text.split(',').map(n => n.trim())
+    const platforms = numbers.map(n => platformMap[n]).filter(Boolean)
+    
+    session.data.platforms = platforms.length > 0 ? platforms : [platformMap[text] || text]
+    session.data.platform = session.data.platforms[0] || 'Other' // Backward compatibility
+    
     session.step = 'experience'
     return questions.experience
   }
@@ -986,7 +1036,7 @@ function processWhatsAppResponse(session, message) {
     return questions.vehicleType
   }
 
-  // Vehicle Type
+  // Vehicle Type (Store for conditional logic)
   if (step === 'vehicleType') {
     const vehicleMap = { '1': 'Electric Two-Wheeler', '2': 'Petrol Two-Wheeler', '3': 'Four-Wheeler', '4': 'Bicycle' }
     session.data.vehicleType = vehicleMap[text] || text
@@ -998,15 +1048,46 @@ function processWhatsAppResponse(session, message) {
   if (step === 'vehicleBrand') {
     session.data.vehicleBrand = text
     session.step = 'fuelMethod'
-    return questions.fuelMethod
+    
+    // CONDITIONAL: Ask vehicle-specific fuel method question
+    const isEV = session.data.vehicleType === 'Electric Two-Wheeler'
+    const isPetrol = session.data.vehicleType === 'Petrol Two-Wheeler'
+    
+    if (isEV) {
+      return questions.fuelMethodEV
+    } else if (isPetrol) {
+      return questions.fuelMethodPetrol
+    } else {
+      return questions.fuelMethod
+    }
   }
 
-  // Fuel Method
+  // Fuel Method (CONDITIONAL: Different maps for different vehicles)
   if (step === 'fuelMethod') {
-    const fuelMap = { '1': 'Petrol Pump', '2': 'Home Charging', '3': 'Swapping Station', '4': 'Other' }
-    session.data.fuelMethod = fuelMap[text] || text
+    const isEV = session.data.vehicleType === 'Electric Two-Wheeler'
+    const isPetrol = session.data.vehicleType === 'Petrol Two-Wheeler'
+    
+    if (isEV) {
+      const fuelMapEV = { '1': 'Home Charging', '2': 'Swapping Station', '3': 'Public Charging Station', '4': 'Other' }
+      session.data.fuelMethod = fuelMapEV[text] || text
+    } else if (isPetrol) {
+      const fuelMapPetrol = { '1': 'Petrol Pump', '2': 'Other' }
+      session.data.fuelMethod = fuelMapPetrol[text] || text
+    } else {
+      const fuelMap = { '1': 'Petrol Pump', '2': 'Home Charging', '3': 'Swapping Station', '4': 'Other' }
+      session.data.fuelMethod = fuelMap[text] || text
+    }
+    
     session.step = 'weeklyExpense'
-    return questions.weeklyExpense
+    
+    // CONDITIONAL: Ask vehicle-specific expense question
+    if (isEV) {
+      return questions.weeklyExpenseEV
+    } else if (isPetrol) {
+      return questions.weeklyExpensePetrol
+    } else {
+      return questions.weeklyExpense
+    }
   }
 
   // Weekly Expense
@@ -1020,23 +1101,56 @@ function processWhatsAppResponse(session, message) {
   if (step === 'monthlyMaintenance') {
     session.data.monthlyMaintenance = text
     session.step = 'challenges'
-    return questions.challenges
+    
+    // CONDITIONAL: Ask vehicle-specific challenges
+    const isEV = session.data.vehicleType === 'Electric Two-Wheeler'
+    const isPetrol = session.data.vehicleType === 'Petrol Two-Wheeler'
+    
+    if (isEV) {
+      return questions.challengesEV
+    } else if (isPetrol) {
+      return questions.challengesPetrol
+    } else {
+      return questions.challenges
+    }
   }
 
-  // General Challenges
+  // General Challenges (CONDITIONAL: Different maps for different vehicles)
   if (step === 'challenges') {
-    const challengeMap = {
-      '1': 'High fuel cost', '2': 'Frequent breakdown', '3': 'No nearby charging station',
-      '4': 'Battery range anxiety', '5': 'Repair costs', '6': 'Long refuelling time', '7': 'Other'
+    const isEV = session.data.vehicleType === 'Electric Two-Wheeler'
+    const isPetrol = session.data.vehicleType === 'Petrol Two-Wheeler'
+    
+    if (isEV) {
+      // EV challenges map (no fuel cost, no refuelling time)
+      const challengeMapEV = {
+        '1': 'Frequent breakdown', '2': 'No nearby charging station', '3': 'Battery range anxiety',
+        '4': 'Repair costs', '5': 'Other'
+      }
+      const selectedChallenges = text.split(',').map(n => challengeMapEV[n.trim()]).filter(Boolean)
+      session.data.challenges = selectedChallenges
+    } else if (isPetrol) {
+      // Petrol challenges map (no charging station, no battery anxiety)
+      const challengeMapPetrol = {
+        '1': 'High fuel cost', '2': 'Frequent breakdown', '3': 'Repair costs',
+        '4': 'Long refuelling time', '5': 'Other'
+      }
+      const selectedChallenges = text.split(',').map(n => challengeMapPetrol[n.trim()]).filter(Boolean)
+      session.data.challenges = selectedChallenges
+    } else {
+      // All challenges
+      const challengeMap = {
+        '1': 'High fuel cost', '2': 'Frequent breakdown', '3': 'No nearby charging station',
+        '4': 'Battery range anxiety', '5': 'Repair costs', '6': 'Long refuelling time', '7': 'Other'
+      }
+      const selectedChallenges = text.split(',').map(n => challengeMap[n.trim()]).filter(Boolean)
+      session.data.challenges = selectedChallenges
     }
-    const selectedChallenges = text.split(',').map(n => challengeMap[n.trim()]).filter(Boolean)
-    session.data.challenges = selectedChallenges // Store as array
     
     // Based on vehicle type, ask specific challenges or move forward
-    if (session.data.vehicleType === 'Electric Two-Wheeler') {
+    if (isEV) {
       session.step = 'evChallenges'
       return questions.evChallenges
-    } else if (session.data.vehicleType === 'Petrol Two-Wheeler') {
+    } else if (isPetrol) {
       session.step = 'petrolChallenges'
       return questions.petrolChallenges
     } else {
@@ -1100,34 +1214,94 @@ function processWhatsAppResponse(session, message) {
     return questions.switchToEV
   }
 
-  // Switch to EV
+  // Switch to EV (CONDITIONAL: Different questions for different vehicles)
   if (step === 'switchToEV') {
-    const switchMap = { '1': 'yes', '2': 'no', '3': 'alreadyOnEV', '4': 'needMoreInfo' }
+    const isEV = session.data.vehicleType === 'Electric Two-Wheeler'
+    const isPetrol = session.data.vehicleType === 'Petrol Two-Wheeler'
+    const isFourWheeler = session.data.vehicleType === 'Four-Wheeler'
+    const isBicycle = session.data.vehicleType === 'Bicycle'
+    
+    // If already on EV, auto-set and skip
+    if (isEV) {
+      session.data.switchToEV = 'alreadyOnEV'
+      session.step = 'interested'
+      // Send info message and move to interested
+      setTimeout(() => {}, 1000) // Small delay for UX
+      return questions.switchToEVAlready + '\n\n' + questions.interestedEV
+    }
+    
+    // Otherwise, parse their answer
+    const switchMap = { '1': 'yes', '2': 'no', '3': 'needMoreInfo' }
     session.data.switchToEV = switchMap[text] || (text.toLowerCase().includes('yes') ? 'yes' : 'no')
-    session.step = 'switchReasons'
-    return questions.switchReasons
+    
+    // CONDITIONAL: Only ask switch reasons if interested
+    if (session.data.switchToEV === 'yes' || session.data.switchToEV === 'needMoreInfo') {
+      session.step = 'switchReasons'
+      return questions.switchReasons
+    } else {
+      // Skip switch reasons, go to interested
+      session.data.switchReasons = []
+      session.step = 'interested'
+      
+      // Return appropriate interested question
+      if (isPetrol) {
+        return questions.interestedPetrol
+      } else {
+        return questions.interested
+      }
+    }
   }
 
-  // Switch Reasons
+  // Switch Reasons (CONDITIONAL: Only shown if interested)
   if (step === 'switchReasons') {
     const reasonMap = {
       '1': 'Lower rental cost', '2': 'Better battery range', '3': 'Swap stations nearby',
       '4': 'Income guarantee', '5': 'Employer subsidy', '6': 'Other'
     }
     const selectedReasons = text.split(',').map(n => reasonMap[n.trim()]).filter(Boolean)
-    session.data.switchReasons = selectedReasons.length > 0 ? selectedReasons : [text] // Store as array
+    session.data.switchReasons = selectedReasons.length > 0 ? selectedReasons : [text]
+    
     session.step = 'interested'
-    return questions.interested
+    
+    // CONDITIONAL: Different interested options based on vehicle
+    const isPetrol = session.data.vehicleType === 'Petrol Two-Wheeler'
+    const isEV = session.data.vehicleType === 'Electric Two-Wheeler'
+    
+    if (isEV) {
+      return questions.interestedEV
+    } else if (isPetrol) {
+      return questions.interestedPetrol
+    } else {
+      return questions.interested
+    }
   }
 
-  // Interested
+  // Interested (CONDITIONAL: Different maps for different vehicles)
   if (step === 'interested') {
-    const interestMap = {
-      '1': 'EV rental offer', '2': 'Insurance quote', '3': 'Retrofit information',
-      '4': 'All of the above', '5': 'None'
+    const isEV = session.data.vehicleType === 'Electric Two-Wheeler'
+    const isPetrol = session.data.vehicleType === 'Petrol Two-Wheeler'
+    
+    let interestMap
+    if (isEV) {
+      interestMap = {
+        '1': 'Better EV rental offer', '2': 'Insurance quote', '3': 'Accessories',
+        '4': 'All of the above', '5': 'None'
+      }
+    } else if (isPetrol) {
+      interestMap = {
+        '1': 'EV rental offer', '2': 'Retrofit information', '3': 'Insurance quote',
+        '4': 'All of the above', '5': 'None'
+      }
+    } else {
+      interestMap = {
+        '1': 'EV information', '2': 'Insurance quote', '3': 'Accessories',
+        '4': 'All of the above', '5': 'None'
+      }
     }
+    
     const selectedInterests = text.split(',').map(n => interestMap[n.trim()]).filter(Boolean)
-    session.data.interested = selectedInterests.length > 0 ? selectedInterests : ['None'] // Store as array
+    session.data.interested = selectedInterests.length > 0 ? selectedInterests : ['None']
+    
     session.step = 'referralCode'
     return questions.referralCode
   }
@@ -1155,6 +1329,7 @@ async function saveWhatsAppRider(sessionData) {
     fullName: sessionData.fullName,
     whatsapp: sessionData.whatsapp,
     city: sessionData.city,
+    platforms: sessionData.platforms,
     platform: sessionData.platform
   })
   
@@ -1164,7 +1339,8 @@ async function saveWhatsAppRider(sessionData) {
     full_name: sessionData.fullName,
     whatsapp: sessionData.whatsapp,
     city: sessionData.city,
-    platform: sessionData.platform,
+    platforms: sessionData.platforms || [sessionData.platform], // Multi-select platforms
+    platform: sessionData.platform, // Backward compatibility
     experience: sessionData.experienceNumeric || 2, // Use numeric value
     vehicle_type: sessionData.vehicleType,
     vehicle_brand: sessionData.vehicleBrand,
@@ -1270,19 +1446,27 @@ app.post('/api/whatsapp', async (req, res) => {
         console.log('💾 Data saved, code:', referralCode)
         const lang = session.language
         
-        // Send completion message
-        const completeMsg = WHATSAPP_QUESTIONS[lang].complete.replace('{code}', referralCode)
+        // Generate referral link
+        const appUrl = process.env.APP_URL || 'https://ev-app-seven.vercel.app'
+        const referralLink = `${appUrl}/?ref=${referralCode}`
+        
+        // Send completion message with referral link
+        const completeMsg = WHATSAPP_QUESTIONS[lang].complete
+          .replace('{code}', referralCode)
+          .replace('{link}', referralLink)
         await sendNotification(from, completeMsg)
         
         // Generate and send QR code
-        const qrUrl = `${process.env.APP_URL}/?ref=${referralCode}`
+        const qrUrl = referralLink
         console.log('📱 Generating QR for:', qrUrl)
         
         // Create QR code image URL (publicly accessible)
         const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrUrl)}`
         
-        // Send QR message with instructions
-        const qrTextMessage = WHATSAPP_QUESTIONS[lang].qrCode.replace('{qrImage}', '')
+        // Send QR message with instructions and referral link
+        const qrTextMessage = WHATSAPP_QUESTIONS[lang].qrCode
+          .replace('{qrImage}', '')
+          .replace('{link}', referralLink)
         
         if (twilioClient) {
           console.log('📤 Sending QR image via Twilio')
