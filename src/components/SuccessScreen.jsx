@@ -14,13 +14,24 @@ function SuccessScreen() {
     notificationMethod: 'none'
   }
   const [copied, setCopied] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
   const [qrCode, setQrCode] = useState(null)
   const [loadingQr, setLoadingQr] = useState(false)
+
+  // Generate referral link
+  const appUrl = import.meta.env.VITE_APP_URL || window.location.origin
+  const referralLink = `${appUrl}/?ref=${referralCode}`
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralCode)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(referralLink)
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2000)
   }
 
   const generateQR = async () => {
@@ -36,8 +47,9 @@ function SuccessScreen() {
     }
   }
 
-  const shareText = `Join Rider Connect and earn rewards! Use my code: ${referralCode}`
+  const shareText = `Join Rider Connect and earn rewards! Use my code: ${referralCode}\nOr click here to register: ${referralLink}`
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`
+  const smsUrl = `sms:?body=${encodeURIComponent(shareText)}`
 
   return (
     <div className={styles.success}>
@@ -86,6 +98,17 @@ function SuccessScreen() {
           </div>
         </div>
 
+        <div className={styles.linkSection}>
+          <label className={styles.label}>📎 Your Referral Link (Easy to share!)</label>
+          <div className={styles.linkBox}>
+            <span className={styles.link}>{referralLink}</span>
+            <button className={styles.copyBtn} onClick={handleCopyLink}>
+              {linkCopied ? '✓' : '📋'}
+            </button>
+          </div>
+          <p className={styles.linkHint}>Share this link with friends - when they click it, your code is auto-filled!</p>
+        </div>
+
         <div className={styles.pointsSection}>
           <div className={styles.pointsBadge}>
             <span className={styles.pointsValue}>{points}</span>
@@ -95,10 +118,17 @@ function SuccessScreen() {
 
         <p className={styles.message}>{t('shareWithFriends')}</p>
 
-        <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className={styles.shareBtn}>
-          <span className={styles.whatsappIcon}>💬</span>
-          Share on WhatsApp
-        </a>
+        <div className={styles.shareButtons}>
+          <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className={styles.shareBtn}>
+            <span className={styles.whatsappIcon}>💬</span>
+            Share on WhatsApp
+          </a>
+
+          <a href={smsUrl} className={styles.shareBtn}>
+            <span className={styles.smsIcon}>📱</span>
+            Share via SMS
+          </a>
+        </div>
 
         <button className={styles.qrBtn} onClick={generateQR} disabled={loadingQr}>
           {loadingQr ? 'Generating...' : '📱 Generate QR Code'}

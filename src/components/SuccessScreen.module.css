@@ -272,3 +272,66 @@
   border-color: var(--primary);
   color: var(--primary);
 }
+
+/* Referral Link Section */
+.linkSection {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #f0fdf4;
+  border-radius: 12px;
+  border: 2px solid var(--primary);
+}
+
+.linkBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: white;
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.link {
+  flex: 1;
+  font-size: 12px;
+  color: var(--primary);
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.linkHint {
+  font-size: 12px;
+  color: #059669;
+  margin: 0;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Share Buttons Container */
+.shareButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.smsIcon {
+  font-size: 20px;
+}
+
+@media (min-width: 480px) {
+  .shareButtons {
+    flex-direction: row;
+  }
+
+  .shareBtn {
+    flex: 1;
+  }
+
+  .link {
+    font-size: 13px;
+  }
+}
