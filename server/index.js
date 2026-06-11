@@ -1231,7 +1231,28 @@ function processWhatsAppResponse(session, message) {
   if (step === 'paidForAccident') {
     session.data.paidForAccident = text.toLowerCase().includes('yes') ? 'yes' : 'no'
     session.step = 'switchToEV'
-    return questions.switchToEV
+    
+    // CONDITIONAL: Return appropriate switch question based on vehicle type
+    const isEV = session.data.vehicleType === 'Electric Two-Wheeler'
+    const isPetrol = session.data.vehicleType === 'Petrol Two-Wheeler'
+    const isFourWheeler = session.data.vehicleType === 'Four-Wheeler'
+    const isBicycle = session.data.vehicleType === 'Bicycle'
+    
+    if (isEV) {
+      // Skip to interested for EV riders (they're already on EV)
+      session.data.switchToEV = 'alreadyOnEV'
+      session.step = 'interested'
+      return questions.switchToEVAlready + '\n\n' + questions.interestedEV
+    } else if (isPetrol) {
+      return questions.switchToEVPetrol
+    } else if (isFourWheeler) {
+      return questions.switchToEVFourWheeler
+    } else if (isBicycle) {
+      return questions.switchToEVBicycle
+    } else {
+      // Default to petrol question
+      return questions.switchToEVPetrol
+    }
   }
 
   // Switch to EV (CONDITIONAL: Different questions for different vehicles)
