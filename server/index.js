@@ -1322,6 +1322,23 @@ function processWhatsAppResponse(session, message) {
     const selectedInterests = text.split(',').map(n => interestMap[n.trim()]).filter(Boolean)
     session.data.interested = selectedInterests.length > 0 ? selectedInterests : ['None']
     
+    session.step = 'accessories'
+    return questions.accessories || "🎁 *Which accessories would help your work?*\n\n1 - Phone mount\n2 - Power bank\n3 - Emergency light\n4 - Raincoat\n5 - Cable lock\n6 - Seat cushion\n7 - Handlebar charger\n8 - None needed\n\n(Type numbers separated by commas)"
+  }
+
+  // Accessories (NEW STEP)
+  if (step === 'accessories') {
+    if (!text.toLowerCase().includes('skip') && text !== '8') {
+      const accessoryMap = {
+        '1': 'Phone mount', '2': 'Power bank', '3': 'Emergency light', '4': 'Raincoat',
+        '5': 'Cable lock', '6': 'Seat cushion', '7': 'Handlebar charger', '8': 'None needed'
+      }
+      const selectedAccessories = text.split(',').map(n => accessoryMap[n.trim()]).filter(Boolean)
+      session.data.accessories = selectedAccessories.length > 0 ? selectedAccessories : []
+    } else {
+      session.data.accessories = []
+    }
+    
     session.step = 'referralCode'
     return questions.referralCode
   }
@@ -1456,7 +1473,15 @@ app.post('/api/whatsapp', async (req, res) => {
     // Process response (this handles language selection too)
     console.log('⚙️ Processing response')
     const response = processWhatsAppResponse(session, body)
-    console.log('💬 Response:', response.substring(0, 100))
+    
+    // Add safety check for undefined response
+    if (!response) {
+      console.error('❌ Response is undefined for step:', session.step)
+      await sendNotification(from, "❌ Something went wrong. Type 'restart' to begin again.")
+      return res.status(200).send('OK')
+    }
+    
+    console.log('💬 Response:', typeof response === 'string' ? response.substring(0, 100) : response)
 
     // Check if complete
     if (response === 'complete') {
