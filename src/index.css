@@ -5,51 +5,53 @@
 }
 
 :root {
-  /* Primary Colors - Green (Energetic, EV-friendly) */
-  --primary: #10B981;
-  --primary-dark: #059669;
-  --primary-light: #D1FAE5;
+  /* Primary Colors - Vibrant Green (Energetic, EV-friendly, Road Warrior) */
+  --primary: #22C55E;
+  --primary-dark: #16A34A;
+  --primary-light: #DCFCE7;
+  --primary-glow: rgba(34, 197, 94, 0.2);
   
-  /* Accent Colors - Orange (Action, Enthusiasm) */
-  --accent: #F97316;
-  --accent-dark: #EA580C;
-  --accent-light: #FED7AA;
+  /* Accent Colors - Bold Orange (Action, Energy, Delivery Speed) */
+  --accent: #FB923C;
+  --accent-dark: #F97316;
+  --accent-light: #FFEDD5;
+  --accent-glow: rgba(251, 146, 60, 0.2);
   
   /* Neutral Colors */
-  --dark: #1F2937;
-  --gray: #6B7280;
-  --light-gray: #F3F4F6;
-  --border: #E5E7EB;
+  --dark: #0F172A;
+  --gray: #64748B;
+  --light-gray: #F8FAFC;
+  --border: #E2E8F0;
   --white: #FFFFFF;
   
   /* Status Colors */
-  --success: #34D399;
+  --success: #10B981;
   --error: #EF4444;
-  --warning: #FBBF24;
+  --warning: #F59E0B;
   --info: #3B82F6;
   
-  /* Typography - Mobile First (16px base) */
-  --font-base: 16px;
-  --font-button: 18px;
-  --font-label: 14px;
-  --font-heading: 24px;
-  --font-title: 32px;
+  /* Typography - BIGGER for mobile readability (18px base) */
+  --font-base: 18px;
+  --font-button: 20px;
+  --font-label: 16px;
+  --font-heading: 28px;
+  --font-title: 36px;
   
-  /* Spacing */
-  --tap-target: 48px;
-  --input-height: 56px;
-  --button-height: 56px;
+  /* Spacing - BIGGER tap targets */
+  --tap-target: 56px;
+  --input-height: 60px;
+  --button-height: 64px;
   --spacing-xs: 8px;
   --spacing-sm: 12px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
+  --spacing-md: 20px;
+  --spacing-lg: 28px;
+  --spacing-xl: 36px;
 }
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   font-size: var(--font-base);
-  background: linear-gradient(135deg, var(--primary-light) 0%, var(--white) 100%);
+  background: linear-gradient(135deg, #ECFDF5 0%, #FEF3C7 50%, #FFF7ED 100%);
   min-height: 100vh;
   color: var(--dark);
   -webkit-font-smoothing: antialiased;
